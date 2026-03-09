@@ -1,4 +1,4 @@
-# 农产品价格与中国宏观弹性分析（analyse.pjhaapy）
+# 农产品价格波动对中国GDP的影响研究（analyse.pjhaapy）
 
 本项目聚焦“农产品价格波动与中国宏观（第一产业权重GDP）”之间的弹性关系，构建了一套从数据处理到可视化与可解释结果的轻量级分析流水线，支持可复现、可溯源的研究与展示。
 
@@ -27,6 +27,11 @@
 
 ## 可视化与阅读路径
 前端入口：`show.html`（直接双击或在浏览器打开）。可视化由 [ECharts](https://echarts.apache.org/) 驱动，读取 `start_echarts_data.js`。
+
+在线预览（渲染版）：
+- https://raw.githack.com/pjhappy-1999/analyse.pjhaapy/main/show.html
+
+说明：GitHub 仓库页面点开 `show.html` 默认展示的是源码；通过上述链接可直接渲染展示页面效果。
 
 核心版块（已精简聚焦在“基础数据处理 + 滞后性”的结论与过程）：
 1. 原始数据概览：时间序列对齐，便于直观观察趋势。
