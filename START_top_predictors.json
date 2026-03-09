@@ -1,0 +1,106 @@
+{
+  "positive": [
+    {
+      "name": "ΔLog cotton (Lag 1)",
+      "value": 0.518,
+      "original_name": "diff_log_wfp_cotton_price_usd_mean_lag1"
+    },
+    {
+      "name": "ΔLog cotton (Roll Mean 4)",
+      "value": 0.427,
+      "original_name": "diff_log_wfp_cotton_price_usd_mean_roll_mean_4"
+    },
+    {
+      "name": "ΔLog wheat (Lag 3)",
+      "value": 0.368,
+      "original_name": "diff_log_wfp_wheat_price_usd_mean_lag3"
+    },
+    {
+      "name": "ΔLog maize (Lag 1)",
+      "value": 0.335,
+      "original_name": "diff_log_wfp_maize_price_usd_mean_lag1"
+    },
+    {
+      "name": "ΔLog Crude Oil (Lag 1)",
+      "value": 0.308,
+      "original_name": "diff_log_crude_oil_price_lag1"
+    },
+    {
+      "name": "ΔLog maize (Roll Mean 4)",
+      "value": 0.305,
+      "original_name": "diff_log_wfp_maize_price_usd_mean_roll_mean_4"
+    },
+    {
+      "name": "ΔLog cotton (Lag 2)",
+      "value": 0.302,
+      "original_name": "diff_log_wfp_cotton_price_usd_mean_lag2"
+    },
+    {
+      "name": "ΔLog palm_oil (Lag 2)",
+      "value": 0.265,
+      "original_name": "diff_log_wfp_palm_oil_price_usd_mean_lag2"
+    },
+    {
+      "name": "ΔLog cotton (Roll Volatility 4)",
+      "value": 0.25,
+      "original_name": "diff_log_wfp_cotton_price_usd_mean_roll_std_4"
+    },
+    {
+      "name": "ΔLog Crude Oil (Roll Mean 4)",
+      "value": 0.223,
+      "original_name": "diff_log_crude_oil_price_roll_mean_4"
+    }
+  ],
+  "negative": [
+    {
+      "name": "ΔLog GDP (Lag 4)",
+      "value": -0.545,
+      "original_name": "diff_log_primary_weighted_gdp_lag4"
+    },
+    {
+      "name": "ΔLog palm_oil (Lag 1)",
+      "value": -0.29,
+      "original_name": "diff_log_wfp_palm_oil_price_usd_mean_lag1"
+    },
+    {
+      "name": "ΔLog GDP (Roll Mean 4)",
+      "value": -0.248,
+      "original_name": "diff_log_primary_weighted_gdp_roll_mean_4"
+    },
+    {
+      "name": "ΔLog Crude Oil (Roll Volatility 4)",
+      "value": -0.187,
+      "original_name": "diff_log_crude_oil_price_roll_std_4"
+    },
+    {
+      "name": "ΔLog soybeans (Roll Volatility 4)",
+      "value": -0.166,
+      "original_name": "diff_log_wfp_soybeans_price_usd_mean_roll_std_4"
+    },
+    {
+      "name": "ΔLog palm_oil (Lag 4)",
+      "value": -0.11,
+      "original_name": "diff_log_wfp_palm_oil_price_usd_mean_lag4"
+    },
+    {
+      "name": "Interaction: ΔLog Crude Oil x ΔLog maize",
+      "value": -0.096,
+      "original_name": "inter_diff_log_crude_oil_price_x_diff_log_wfp_maize_price_usd_mean"
+    },
+    {
+      "name": "Interaction: ΔLog Crude Oil x ΔLog cotton",
+      "value": -0.078,
+      "original_name": "inter_diff_log_crude_oil_price_x_diff_log_wfp_cotton_price_usd_mean"
+    },
+    {
+      "name": "ΔLog palm_oil (Roll Mean 4)",
+      "value": -0.073,
+      "original_name": "diff_log_wfp_palm_oil_price_usd_mean_roll_mean_4"
+    },
+    {
+      "name": "Q_2",
+      "value": -0.055,
+      "original_name": "Q_2"
+    }
+  ]
+}

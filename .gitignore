@@ -1,0 +1,9 @@
+# Ignore large raw dataset files
+/Global WFP Food Prices.csv
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+
