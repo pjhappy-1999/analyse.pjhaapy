@@ -1,5 +1,7 @@
 # 农产品价格波动对中国GDP的影响研究（analyse.pjhaapy）
 
+[![在线预览 show.html](https://img.shields.io/badge/在线预览-show.html-1f6feb)](https://raw.githack.com/pjhappy-1999/analyse.pjhaapy/main/show.html)
+
 本项目聚焦“农产品价格波动与中国宏观（第一产业权重GDP）”之间的弹性关系，构建了一套从数据处理到可视化与可解释结果的轻量级分析流水线，支持可复现、可溯源的研究与展示。
 
 ## 项目目标
