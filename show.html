@@ -2,50 +2,72 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>START 可视化简版 (v2026.03.09-fix-align)</title>
+    <title>START 可视化简版 (v2026.03.09-letter-style)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts-maps@1.1.0/world.js"></script>
     <script src="start_echarts_data.js"></script>
     <script src="volatility_gdp_data.js"></script>
 <script src="volatility_lag_data.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; box-sizing: border-box; }
+        /* 信纸风格基础设置 */
+        body { 
+            font-family: "KaiTi", "楷体", "STKaiti", "FangSong", "仿宋", serif; 
+            margin: 0; 
+            padding: 20px 40px 20px 100px; /* 左侧留出红线空间 */
+            box-sizing: border-box; 
+            background-color: #fdfbf3;
+            /* 模拟信纸线条：垂直红线 + 水平横线 */
+            background-image: 
+                linear-gradient(90deg, transparent 79px, #ff9999 79px, #ff9999 81px, transparent 81px),
+                linear-gradient(transparent 34px, #e1d9cd 34px, #e1d9cd 35px);
+            background-size: 100% 100%, 100% 35px; /* 35px 行高 */
+            background-attachment: fixed;
+            color: #4a3b2a;
+            line-height: 35px;
+        }
+        
+        h3, h4 {
+            color: #5d4037;
+            font-family: "KaiTi", "楷体", serif;
+        }
+
+        /* 统一图表容器样式 */
         .chart-container {
             width: 100%;
             max-width: 1200px;
-            margin: 20px auto;
-            background: #fff;
+            margin: 35px auto;
+            /* 稍微加一点白色半透明背景，防止图表文字被横线干扰太严重 */
+            background: rgba(255, 255, 255, 0.6); 
             padding: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            border-radius: 8px;
+            border-radius: 4px;
+            border: 1px dashed #8b4513; /* 像贴上去的图表 */
             position: relative; /* For ball positioning */
+            box-sizing: border-box;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
         }
         
-        /* Ball Selector Styles */
+        /* Ball Selector Styles - 适配信纸风格 */
         .ball-selector {
             position: absolute;
-            top: 60px; /* Moved down slightly to align better */
-            right: 20px; /* Moved closer to edge */
+            top: 60px; 
+            right: 20px; 
             z-index: 1000;
         }
         .ball-btn {
-            width: 120px; /* Increased size */
+            width: 120px; 
             height: 120px;
             border-radius: 50%;
             position: relative;
-            /* Glassmorphism base style */
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.2), inset 0 0 15px rgba(255,255,255,0.1);
-            border: 1px solid rgba(255, 255, 255, 0.4);
+            background: #fffef6;
+            box-shadow: 4px 4px 10px rgba(0,0,0,0.2), inset 0 0 10px rgba(139, 69, 19, 0.1);
+            border: 2px solid #8b4513;
             cursor: pointer;
-            overflow: hidden; /* Clip the halves */
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s;
+            overflow: hidden; 
+            transition: transform 0.3s, box-shadow 0.3s;
         }
         .ball-btn:hover {
-            transform: scale(1.08);
-            box-shadow: 0 15px 40px rgba(31, 38, 135, 0.3), inset 0 0 20px rgba(255,255,255,0.2);
-            border: 1px solid rgba(255, 255, 255, 0.6);
+            transform: scale(1.05);
+            box-shadow: 6px 6px 15px rgba(0,0,0,0.25);
         }
         .ball-btn:active {
             transform: scale(0.95);
@@ -57,46 +79,47 @@
             height: 50%;
             display: flex;
             justify-content: center;
-            color: white;
-            font-size: 16px;
-            font-family: "Microsoft YaHei", sans-serif; /* Explicit font for Chinese */
+            color: #5d4037; /* 深棕色字 */
+            font-size: 18px;
+            font-family: "KaiTi", "楷体", serif;
             font-weight: bold;
             line-height: 1.2;
             text-align: center;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+            text-shadow: none;
             transition: background 0.3s;
         }
         .ball-top {
             top: 0;
-            /* background set by JS with opacity for glass effect */
-            align-items: flex-end; /* Text at bottom of top half */
-            padding-bottom: 8px; /* Space for hole */
+            align-items: flex-end; 
+            padding-bottom: 8px; 
             box-sizing: border-box;
-            border-bottom: 1px solid rgba(255,255,255,0.3);
+            border-bottom: 1px solid #8b4513;
+            background: rgba(255, 255, 255, 0.6);
         }
         .ball-bottom {
             bottom: 0;
-            /* Red glass effect */
-            background: linear-gradient(135deg, rgba(217, 83, 79, 0.85), rgba(201, 48, 44, 0.6)); 
-            align-items: flex-start; /* Text at top of bottom half */
-            padding-top: 8px; /* Space for hole */
+            background: rgba(139, 69, 19, 0.1); 
+            align-items: flex-start; 
+            padding-top: 8px; 
             box-sizing: border-box;
-            border-top: 1px solid rgba(255,255,255,0.3);
+            border-top: 1px solid #8b4513;
         }
         .ball-menu {
             display: none;
             position: absolute;
-            top: 130px; /* Adjusted for larger ball */
-            right: 0; /* Align to right */
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            top: 130px; 
+            right: 0; 
+            background: #fffef6; 
+            border-radius: 4px;
+            box-shadow: 4px 4px 10px rgba(0,0,0,0.15);
             padding: 8px 0;
             min-width: 180px;
-            border: 1px solid #eee;
+            border: 2px solid #8b4513;
             z-index: 101;
             overflow: hidden;
             animation: fadeIn 0.2s ease-out;
+            background-image: linear-gradient(#e1d9cd 1px, transparent 1px); 
+            background-size: 100% 35px;
         }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(-10px); }
@@ -107,60 +130,56 @@
             animation: fadeIn 0.2s;
         }
         .ball-menu-item {
-            padding: 10px 15px;
+            padding: 5px 15px; 
             cursor: pointer;
             transition: background 0.2s;
-            font-size: 14px;
-            color: #333;
-            border-bottom: 1px solid #f5f5f5;
+            font-size: 16px;
+            font-family: "KaiTi", "楷体", serif;
+            color: #5d4037;
+            border-bottom: 1px dashed #ccc;
+            height: 35px; 
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
         }
         .ball-menu-item:last-child {
             border-bottom: none;
         }
         .ball-menu-item:hover {
-            background-color: #f0f0f0;
-            color: #2196F3;
+            background-color: rgba(139, 69, 19, 0.1);
+            color: #8b4513;
         }
         .ball-menu-item.active {
-            background-color: #e3f2fd;
-            color: #1976D2;
+            background-color: rgba(139, 69, 19, 0.2);
+            color: #8b4513;
             font-weight: bold;
-            border-left: 4px solid #1976D2;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
+            border-left: 4px solid #8b4513;
         }
 
-        #chart_timeseries {
-            height: 420px;
-        }
-        #chart_corr, #chart_corr_rel {
-            height: 420px;
-        }
-        #chart_corr_rel_vol_delta, #chart_corr_rel_vol_ewma, #chart_corr_rel_vol_shock {
-            height: 420px;
-        }
-        #chart_vol_lag_heatmap_delta, #chart_vol_lag_heatmap_ewma, #chart_vol_lag_heatmap_shock {
-            height: 520px;
-        }
-        #chart_lags_delta, #chart_lags_ewma, #chart_lags_shock {
-            height: 420px;
-        }
+        /* Chart Heights */
+        #chart_timeseries { height: 420px; }
+        #chart_corr, #chart_corr_rel { height: 420px; }
+        #chart_corr_rel_vol_delta, #chart_corr_rel_vol_ewma, #chart_corr_rel_vol_shock { height: 420px; }
+        #chart_vol_lag_heatmap_delta, #chart_vol_lag_heatmap_ewma, #chart_vol_lag_heatmap_shock { height: 520px; }
+        #chart_lags_delta, #chart_lags_ewma, #chart_lags_shock { height: 420px; }
+        #chart_predictors { height: 600px; }
+
         .note-small {
             max-width: 1200px;
             margin: 0 auto 10px auto;
             color: #666;
-            font-size: 12px;
-            line-height: 1.5;
+            font-size: 14px;
+            font-style: italic;
         }
-        #chart_predictors {
-            height: 600px;
-        }
+        
+        /* Table Styles */
         .corr-table {
             width: 100%;
             max-width: 1200px;
-            margin: 10px auto 30px auto;
+            margin: 35px auto;
+            background: rgba(255,255,255,0.4);
+            border: 1px dashed #8b4513;
+            padding: 10px;
         }
         .corr-table table {
             width: 100%;
@@ -168,54 +187,297 @@
         }
         .corr-table th, .corr-table td {
             padding: 6px 8px;
-            border-bottom: 1px solid #ddd;
+            border-bottom: 1px solid #8b4513;
+            font-family: "KaiTi", "楷体", serif;
+            font-size: 16px;
+            color: #4a3b2a;
         }
         .corr-table th {
             text-align: left;
+            font-weight: bold;
+            color: #5d4037;
         }
         .corr-table td.value {
             text-align: right;
+            font-family: "Courier New", Courier, monospace; 
+            font-weight: bold;
         }
+
+        /* Headings */
         .section-title {
             max-width: 1200px;
-            margin: 40px auto 20px auto;
-            border-bottom: 2px solid #2196F3;
-            padding-bottom: 10px;
-            color: #333;
+            margin: 70px auto 35px auto;
+            border-bottom: 2px solid #8b4513;
+            padding-bottom: 5px;
+            color: #5d4037;
+            font-size: 28px;
+            text-align: center;
         }
+        
         .section-subtitle {
             max-width: 1200px;
-            margin: 30px auto 15px auto;
-            color: #444;
+            margin: 35px auto 15px auto;
+            color: #5d4037;
             padding-left: 10px;
-            border-left: 4px solid #2196F3;
+            border-left: 4px solid #8b4513;
+            font-size: 22px;
+            font-weight: bold;
         }
+        
+        /* Text Content */
         .doc-section {
             max-width: 1200px;
-            margin: 20px auto;
-            background: #fdfdfd;
-            padding: 20px;
-            border-left: 5px solid #FF9800;
-            line-height: 1.6;
+            margin: 35px auto;
+            background: transparent;
+            padding: 0 20px;
+            border-left: 5px solid #ff9800; 
+            line-height: 35px;
+            font-size: 18px;
         }
+        
         .formula {
-            background: #eee;
+            background: rgba(255,255,255,0.5);
             padding: 10px;
             border-radius: 4px;
             font-family: "Times New Roman", Times, serif;
             font-style: italic;
             text-align: center;
-            margin: 10px 0;
+            margin: 35px 0;
+            border: 1px dashed #999;
         }
+        
         code {
-            background: #f4f4f4;
+            background: transparent;
             padding: 2px 4px;
             border-radius: 4px;
             color: #d63384;
+            font-family: "Courier New", Courier, monospace;
+            font-weight: bold;
         }
+        
+        /* Analysis Text Block Override */
+        .analysis-text {
+            background: transparent !important;
+            border-left: 5px solid #8b4513 !important;
+            padding: 0 20px !important;
+            font-family: "KaiTi", "楷体", serif;
+            font-size: 18px;
+            line-height: 35px;
+        }
+
+        /* 动效背景层 */
+        .paper-decoration {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+            overflow: hidden;
+            opacity: 0.8;
+        }
+        
+        /* 贸易路线样式 */
+        .ink-stroke {
+            fill: none;
+            stroke: #8b4513;
+            stroke-width: 2.5;
+            stroke-dasharray: 8, 8; /* 虚线 */
+            stroke-linecap: round;
+            opacity: 0; /* 默认隐藏 */
+        }
+
+        /* 路径绘制动画 (Draw In) */
+        @keyframes drawIn {
+            from { stroke-dashoffset: 1000; opacity: 1; }
+            to { stroke-dashoffset: 0; opacity: 1; }
+        }
+        
+        /* 路径消失动画 (Fade Out) */
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        /* 组合动画类 - 利用 animation-delay 实现接力 */
+        /* 总周期 18s */
+        
+        /* 
+           优化后的纯 CSS 无限循环动画 
+           总周期 (Total Cycle): 21s
+           分段 (Segments): 7段
+           每段分配 (Time per segment): ~3s
+           
+           动画逻辑:
+           0% -> 10% (前2.1s): 绘制线条 (Draw)
+           10% -> 13% (2.1s-2.7s): 保持显示 (Hold)
+           13% -> 15% (2.7s-3.15s): 快速淡出 (Fade Out)
+           15% -> 100%: 隐藏等待下一次循环 (Wait)
+        */
+
+        .trade-route {
+            fill: none;
+            stroke: #8b4513;
+            stroke-width: 2.5;
+            stroke-dasharray: 12, 6; /* 更明显的虚线 */
+            stroke-linecap: round;
+            opacity: 0; /* 初始隐藏 */
+        }
+        
+        /* 
+           注意：为了让虚线“生长”，我们需要足够大的 stroke-dasharray 和 offset。
+           这里我们使用 stroke-dasharray 来定义虚线样式，
+           使用 mask 来做“生长”动画，因为直接动 stroke-dashoffset 会导致虚线滚动而不是生长。
+        */
+        .trade-mask {
+            fill: none;
+            stroke: white; 
+            stroke-width: 8; /* 遮罩要比线宽，确保完全遮住 */
+            stroke-dasharray: 2000;
+            stroke-dashoffset: 2000;
+        }
+
+        @keyframes cycleAnimMask {
+            0% { stroke-dashoffset: 2000; }
+            10% { stroke-dashoffset: 0; } /* 2.1s 画完 */
+            100% { stroke-dashoffset: 0; }
+        }
+
+        @keyframes cycleAnimLine {
+            0% { opacity: 0; }
+            1% { opacity: 1; }
+            13% { opacity: 1; }
+            15% { opacity: 0; } /* 3.15s 消失 */
+            100% { opacity: 0; }
+        }
+
+        /* 应用动画 - 统一周期 21s，无限循环，不同延迟 */
+        /* Segment 1: 0s start */
+        .anim-mask-1 { animation: cycleAnimMask 21s linear infinite; animation-delay: 0s; }
+        .anim-line-1 { animation: cycleAnimLine 21s linear infinite; animation-delay: 0s; }
+
+        /* Segment 2: 3s start */
+        .anim-mask-2 { animation: cycleAnimMask 21s linear infinite; animation-delay: 3s; }
+        .anim-line-2 { animation: cycleAnimLine 21s linear infinite; animation-delay: 3s; }
+
+        /* Segment 3: 6s start */
+        .anim-mask-3 { animation: cycleAnimMask 21s linear infinite; animation-delay: 6s; }
+        .anim-line-3 { animation: cycleAnimLine 21s linear infinite; animation-delay: 6s; }
+
+        /* Segment 4: 9s start */
+        .anim-mask-4 { animation: cycleAnimMask 21s linear infinite; animation-delay: 9s; }
+        .anim-line-4 { animation: cycleAnimLine 21s linear infinite; animation-delay: 9s; }
+
+        /* Segment 5: 12s start */
+        .anim-mask-5 { animation: cycleAnimMask 21s linear infinite; animation-delay: 12s; }
+        .anim-line-5 { animation: cycleAnimLine 21s linear infinite; animation-delay: 12s; }
+
+        /* Segment 6: 15s start */
+        .anim-mask-6 { animation: cycleAnimMask 21s linear infinite; animation-delay: 15s; }
+        .anim-line-6 { animation: cycleAnimLine 21s linear infinite; animation-delay: 15s; }
+
+        /* Segment 7: 18s start */
+        .anim-mask-7 { animation: cycleAnimMask 21s linear infinite; animation-delay: 18s; }
+        .anim-line-7 { animation: cycleAnimLine 21s linear infinite; animation-delay: 18s; }
+        
     </style>
 </head>
 <body>
+
+<!-- 信纸装饰动效层 (Paper Decoration Layer) -->
+<div id="bg-map" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -2;"></div>
+<div class="paper-decoration">
+    <svg width="100%" height="100%" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+        <defs>
+            <!-- 
+                定义遮罩 (Masks)
+                路径经过优化，避开陆地，模拟真实海运航线 (Cubic Bezier Curves)
+            -->
+            
+            <!-- 1. 上海 (920,280) -> 新加坡 (880,380) 
+                 路线：沿中国东南沿海，过台湾海峡，经越南沿海 -->
+            <mask id="m1">
+                <path class="trade-mask anim-mask-1" 
+                      d="M920,280 C930,300 925,330 910,350 C900,365 890,370 880,380" />
+            </mask>
+            
+            <!-- 2. 新加坡 (880,380) -> 苏伊士 (650,260)
+                 路线：马六甲海峡 -> 绕过斯里兰卡南端 -> 阿拉伯海 -> 亚丁湾 -> 红海 -->
+            <mask id="m2">
+                <path class="trade-mask anim-mask-2" 
+                      d="M880,380 C860,370 820,410 790,360 C770,330 720,320 680,300 C670,295 660,280 650,260" />
+            </mask>
+            
+            <!-- 3. 苏伊士 (650,260) -> 鹿特丹 (580,180)
+                 路线：地中海 -> 直布罗陀 -> 绕过葡萄牙/法国 -> 英吉利海峡 -->
+            <mask id="m3">
+                <path class="trade-mask anim-mask-3" 
+                      d="M650,260 C620,255 580,265 550,240 C540,230 540,200 560,190 C570,185 575,182 580,180" />
+            </mask>
+            
+            <!-- 4. 鹿特丹 (580,180) -> 纽约 (280,200)
+                 路线：英吉利海峡 -> 北大西洋航线 (大圆航线，略微向南弯曲) -->
+            <mask id="m4">
+                <path class="trade-mask anim-mask-4" 
+                      d="M580,180 C550,190 450,230 280,200" />
+            </mask>
+            
+            <!-- 5. 纽约 (280,200) -> 巴拿马 (250,320)
+                 路线：沿美国东岸 -> 佛罗里达海峡 -> 加勒比海 -->
+            <mask id="m5">
+                <path class="trade-mask anim-mask-5" 
+                      d="M280,200 C270,230 290,260 270,280 C260,290 255,300 250,320" />
+            </mask>
+            
+            <!-- 6. 巴拿马 (250,320) -> 洛杉矶 (180,220)
+                 路线：沿中美洲西岸 -> 墨西哥沿海 -> 加州 -->
+            <mask id="m6">
+                <path class="trade-mask anim-mask-6" 
+                      d="M250,320 C230,310 210,280 200,260 C190,240 185,230 180,220" />
+            </mask>
+            
+            <!-- 7. 洛杉矶 (180,220) -> 上海 (920,280)
+                 路线：太平洋航线 (由于地图投影，分为两段) -->
+            <mask id="m7">
+                <!-- Part A: LA -> Left Edge (North Pacific) -->
+                <!-- Part B: Right Edge -> Japan -> Shanghai -->
+                <path class="trade-mask anim-mask-7" 
+                      d="M180,220 C100,180 50,180 0,200 M1200,200 C1100,180 1000,240 920,280" />
+            </mask>
+        </defs>
+        
+        <g id="trade-paths" opacity="0.8">
+            <!-- 1. Shanghai -> Singapore -->
+            <path class="trade-route anim-line-1" mask="url(#m1)" 
+                  d="M920,280 C930,300 925,330 910,350 C900,365 890,370 880,380" />
+            
+            <!-- 2. Singapore -> Suez -->
+            <path class="trade-route anim-line-2" mask="url(#m2)" 
+                  d="M880,380 C860,370 820,410 790,360 C770,330 720,320 680,300 C670,295 660,280 650,260" />
+            
+            <!-- 3. Suez -> Rotterdam -->
+            <path class="trade-route anim-line-3" mask="url(#m3)" 
+                  d="M650,260 C620,255 580,265 550,240 C540,230 540,200 560,190 C570,185 575,182 580,180" />
+            
+            <!-- 4. Rotterdam -> New York -->
+            <path class="trade-route anim-line-4" mask="url(#m4)" 
+                  d="M580,180 C550,190 450,230 280,200" />
+            
+            <!-- 5. New York -> Panama -->
+            <path class="trade-route anim-line-5" mask="url(#m5)" 
+                  d="M280,200 C270,230 290,260 270,280 C260,290 255,300 250,320" />
+            
+            <!-- 6. Panama -> Los Angeles -->
+            <path class="trade-route anim-line-6" mask="url(#m6)" 
+                  d="M250,320 C230,310 210,280 200,260 C190,240 185,230 180,220" />
+            
+            <!-- 7. Los Angeles -> Shanghai -->
+            <path class="trade-route anim-line-7" mask="url(#m7)" 
+                  d="M180,220 C100,180 50,180 0,200 M1200,200 C1100,180 1000,240 920,280" />
+        </g>
+    </svg>
+</div>
 
 <h2 class="section-title">📊 1. 原始数据概览 (Raw Data Overview)</h2>
 <div class="chart-container" id="chart_timeseries"></div>
@@ -250,10 +512,40 @@
 <h3 class="section-subtitle">3.2 波动率滞后相关性分析</h3>
 <div class="chart-container" id="chart_vol_lag_corr" style="height: 500px;"></div>
 <div class="corr-table" id="lag_analysis_table"></div>
-<div class="analysis-text" id="lag_analysis_text" style="max-width: 1200px; margin: 20px auto; padding: 15px; background: #f9f9f9; border-left: 5px solid #2196F3;"></div>
+<div class="analysis-text" id="lag_analysis_text"></div>
 
 <script>
-    var timeChartDom = document.getElementById("chart_timeseries");
+        // Background World Map
+        (function() {
+            var dom = document.getElementById('bg-map');
+            if(!dom) return;
+            var chart = echarts.init(dom);
+            var option = {
+                geo: {
+                    map: 'world',
+                    roam: false,
+                    zoom: 1.2,
+                    label: { show: false },
+                    itemStyle: {
+                        areaColor: 'rgba(139, 69, 19, 0.08)', // Slightly more visible
+                        borderColor: 'rgba(139, 69, 19, 0.3)', // Slightly darker border
+                        borderWidth: 1,
+                        borderType: 'dashed' // Sketchy look
+                    },
+                    emphasis: {
+                        disabled: true
+                    },
+                    silent: true // No interaction
+                }
+            };
+            chart.setOption(option);
+            
+            window.addEventListener('resize', function() {
+                chart.resize();
+            });
+        })();
+
+        var timeChartDom = document.getElementById("chart_timeseries");
     var timeChart = echarts.init(timeChartDom);
 
     var timeOption = {
@@ -992,7 +1284,7 @@
         predictorsChart.setOption(predictorsOption);
         
         // Add interpretation text
-        var predConclusionHtml = '<div style="background:#f9f9f9;padding:15px;border-left:5px solid #5cb85c;margin:20px 0;">';
+        var predConclusionHtml = '<div style="background:transparent;padding:0 20px;border-left:5px solid #5cb85c;margin:35px 0;line-height:35px;font-size:18px;font-family: \'KaiTi\', \'楷体\', serif;">';
         predConclusionHtml += '<h3>🎯 关键预测因子发现 (Key Predictors Discovery)</h3>';
         predConclusionHtml += '<p>基于特征工程后的数据集，我们识别出以下对第一产业权重GDP波动具有最强预测能力的变量：</p>';
         predConclusionHtml += '<ul>';
@@ -1578,6 +1870,23 @@
             }
         }
     }
+    // --- Animation Loop Controller ---
+    (function() {
+        var totalDuration = 18000; // 18s loop
+
+        function resetAnimations() {
+            var paths = document.querySelectorAll('.trade-route, .trade-mask');
+            paths.forEach(function(el) {
+                var cls = el.getAttribute('class');
+                el.setAttribute('class', cls.replace(/anim-/g, 'temp-anim-')); // Remove animation classes
+                void el.offsetWidth; // Force Reflow
+                el.setAttribute('class', cls); // Restore animation classes
+            });
+        }
+
+        // Start the loop interval
+        // setInterval(resetAnimations, totalDuration);
+    })();
 </script>
 </body>
 </html>
