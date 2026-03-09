@@ -1,0 +1,131 @@
+commodity                         unit       
+Bread (wheat)                     500 G           1167
+                                  KG                56
+                                  Loaf             711
+                                  Unit            1047
+Buckwheat                         KG              2246
+Buckwheat grits                   KG              2597
+Cotton                            KG                 7
+Feed (wheat bran)                 50 KG             80
+Maize                             100 KG          4976
+                                  46 KG            367
+                                  KG             57762
+                                  Libra            356
+                                  MT                 2
+                                  Pound              1
+Maize (crushed)                   KG               484
+Maize (food aid)                  100 KG            23
+                                  3.5 KG           192
+Maize (imported)                  KG              3345
+Maize (local)                     KG              7512
+Maize (new harvest)               KG              2731
+Maize (seed)                      KG               626
+Maize (white)                     100 KG          7271
+                                  100 Pounds       210
+                                  15 KG            160
+                                  18 KG            432
+                                  3.5 KG          1489
+                                  45 KG            948
+                                  46 KG            950
+                                  5 KG              33
+                                  50 KG            627
+                                  90 KG           1054
+                                  KG             42829
+                                  Libra            107
+                                  MT               256
+                                  Pound             36
+                                  Tin (20 L)       959
+Maize (white, East)               100 Pounds        55
+Maize (white, North)              100 Pounds        68
+Maize (white, biofortified)       100 Pounds       155
+Maize (white, dry)                90 KG            401
+                                  KG               169
+Maize (yellow)                    100 KG          1710
+                                  100 Pounds       451
+                                  15 KG            168
+                                  18 KG            406
+                                  46 KG            525
+                                  50 KG             25
+                                  90 KG            682
+                                  KG              5857
+                                  Libra             13
+                                  MT                35
+                                  Pound            121
+Maize (yellow, biofortified)      100 Pounds       101
+                                  KG                 2
+Maize flour                       2.1 KG          1853
+                                  900 G            156
+                                  KG             16637
+Maize flour (imported)            750 G             43
+                                  KG               868
+Maize flour (white)               KG              2329
+                                  MT                25
+Maize flour (yellow)              KG               349
+Maize meal                        12.5 KG         1116
+                                  25 KG            849
+                                  3.5 KG             1
+                                  400 G            472
+                                  50 KG            157
+                                  KG              5343
+Maize meal (imported)             10 KG            240
+                                  KG               580
+                                  Pound           1173
+Maize meal (local)                Marmite         2042
+Maize meal (white, breakfast)     25 KG           1344
+                                  KG              4676
+Maize meal (white, first grade)   KG              2922
+Maize meal (white, fortified)     KG                41
+Maize meal (white, roller)        25 KG            919
+                                  KG              3827
+Maize meal (white, with bran)     KG              1288
+Maize meal (white, without bran)  KG              1724
+Maize meal (yellow)               KG                 2
+Milling cost (maize)              LCU/3.5kg        756
+                                  Tin (20 KG)      887
+Milling cost (wheat)              50 KG           1523
+Oil (cotton)                      800 G             35
+                                  L               2612
+Oil (maize)                       3 L              684
+                                  800 G            111
+Soybeans                          100 KG            23
+                                  109 KG           276
+                                  90 KG            235
+                                  KG              5165
+Soybeans (dry)                    KG               506
+Tortilla (maize)                  Pound            492
+Wheat                             100 KG          4192
+                                  3 KG             385
+                                  90 KG            545
+                                  KG             22723
+                                  MT              1118
+Wheat (food aid)                  100 KG            96
+                                  KG                 4
+Wheat (imported)                  100 Pounds        49
+Wheat (mixed)                     100 KG            97
+Wheat (white)                     100 KG          1401
+                                  KG                87
+Wheat flour                       1.5 KG           849
+                                  100 KG          1050
+                                  12.5 KG         1769
+                                  50 KG            415
+                                  50 Pounds        147
+                                  60 KG            467
+                                  900 G            601
+                                  KG             53527
+Wheat flour (Turkey)              25 KG              1
+Wheat flour (first grade)         KG              6188
+Wheat flour (fortified)           KG                50
+Wheat flour (high grade)          KG              1005
+Wheat flour (high quality)        KG              3464
+Wheat flour (imported)            46 KG            531
+                                  KG              2662
+                                  Marmite         2057
+Wheat flour (local)               25 KG              8
+                                  46 KG            414
+                                  KG              4342
+Wheat flour (locally processed)   50 KG            140
+                                  KG               174
+Wheat flour (low quality)         KG              2210
+Wheat flour (unpacked, 72%)       KG                37
+Wheat meal                        12.5 KG          503
+                                  KG               497

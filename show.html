@@ -5,6 +5,8 @@
     <title>START 可视化简版</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
     <script src="start_echarts_data.js"></script>
+    <script src="volatility_gdp_data.js"></script>
+<script src="volatility_lag_data.js"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; box-sizing: border-box; }
         .chart-container {
@@ -15,23 +17,134 @@
             padding: 10px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             border-radius: 8px;
+            position: relative; /* For ball positioning */
         }
+        
+        /* Ball Selector Styles */
+        .ball-selector {
+            position: absolute;
+            top: 60px; /* Moved down slightly to align better */
+            right: 20px; /* Moved closer to edge */
+            z-index: 1000;
+        }
+        .ball-btn {
+            width: 120px; /* Increased size */
+            height: 120px;
+            border-radius: 50%;
+            position: relative;
+            /* Glassmorphism base style */
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.2), inset 0 0 15px rgba(255,255,255,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            cursor: pointer;
+            overflow: hidden; /* Clip the halves */
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s;
+        }
+        .ball-btn:hover {
+            transform: scale(1.08);
+            box-shadow: 0 15px 40px rgba(31, 38, 135, 0.3), inset 0 0 20px rgba(255,255,255,0.2);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+        }
+        .ball-btn:active {
+            transform: scale(0.95);
+        }
+        .ball-half {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 50%;
+            display: flex;
+            justify-content: center;
+            color: white;
+            font-size: 16px;
+            font-family: "Microsoft YaHei", sans-serif; /* Explicit font for Chinese */
+            font-weight: bold;
+            line-height: 1.2;
+            text-align: center;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+            transition: background 0.3s;
+        }
+        .ball-top {
+            top: 0;
+            /* background set by JS with opacity for glass effect */
+            align-items: flex-end; /* Text at bottom of top half */
+            padding-bottom: 8px; /* Space for hole */
+            box-sizing: border-box;
+            border-bottom: 1px solid rgba(255,255,255,0.3);
+        }
+        .ball-bottom {
+            bottom: 0;
+            /* Red glass effect */
+            background: linear-gradient(135deg, rgba(217, 83, 79, 0.85), rgba(201, 48, 44, 0.6)); 
+            align-items: flex-start; /* Text at top of bottom half */
+            padding-top: 8px; /* Space for hole */
+            box-sizing: border-box;
+            border-top: 1px solid rgba(255,255,255,0.3);
+        }
+        .ball-menu {
+            display: none;
+            position: absolute;
+            top: 130px; /* Adjusted for larger ball */
+            right: 0; /* Align to right */
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            padding: 8px 0;
+            min-width: 180px;
+            border: 1px solid #eee;
+            z-index: 101;
+            overflow: hidden;
+            animation: fadeIn 0.2s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .ball-menu.show {
+            display: block;
+            animation: fadeIn 0.2s;
+        }
+        .ball-menu-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 14px;
+            color: #333;
+            border-bottom: 1px solid #f5f5f5;
+        }
+        .ball-menu-item:last-child {
+            border-bottom: none;
+        }
+        .ball-menu-item:hover {
+            background-color: #f0f0f0;
+            color: #2196F3;
+        }
+        .ball-menu-item.active {
+            background-color: #e3f2fd;
+            color: #1976D2;
+            font-weight: bold;
+            border-left: 4px solid #1976D2;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         #chart_timeseries {
             height: 420px;
         }
         #chart_corr, #chart_corr_rel {
             height: 420px;
         }
-        #chart_volatility_final {
-            height: 460px;
-        }
-        #chart_best_heatmap {
+        #chart_corr_rel_vol_delta, #chart_corr_rel_vol_ewma, #chart_corr_rel_vol_shock {
             height: 420px;
         }
-        #chart_lag_heatmap_core {
-            height: 420px;
+        #chart_vol_lag_heatmap_delta, #chart_vol_lag_heatmap_ewma, #chart_vol_lag_heatmap_shock {
+            height: 520px;
         }
-        #chart_lags {
+        #chart_lags_delta, #chart_lags_ewma, #chart_lags_shock {
             height: 420px;
         }
         .note-small {
@@ -93,20 +206,6 @@
             border-radius: 4px;
             color: #d63384;
         }
-        .control-panel {
-            max-width: 1200px;
-            margin: 0 auto 10px auto;
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            padding: 4px 8px;
-        }
-        .control-panel label {
-            color: #333;
-        }
-        .control-panel select {
-            padding: 6px 10px;
-        }
     </style>
 </head>
 <body>
@@ -121,13 +220,30 @@
 <div class="corr-table" id="corr_values_rel"></div>
 
 <h2 class="section-title">📉 3. 波动率与滞后弹性（基础数据处理）</h2>
-<div class="chart-container" id="chart_volatility_final"></div>
-<div class="chart-container" id="chart_best_heatmap"></div>
-<div class="chart-container" id="chart_lag_heatmap_core"></div>
-<div class="note-small">
-    说明：价格波动采用 ΔLog；为提升与宏观的匹配度，我们引入 EWMA 平滑与预白化冲击（创新项），并在滞后维度上比较 r[ΔLog(权重GDP)<sub>t</sub>, X<sub>t−k</sub>]。上图选取每个商品“优先显著且 |r| 最大”的方法与滞后作为最优结果；下图展示基于 EWMA 的滞后相关全貌。后文将给出波动计算方式与滞后处理的细节说明。
+<div class="chart-container" style="height: 600px; position: relative;">
+    <!-- Ball Selector -->
+    <!-- Ball Selector (New Feature) -->
+    <div class="ball-selector" id="vol_selector">
+        <div class="ball-btn" onclick="toggleMenu()" title="点击切换作物">
+            <div class="ball-half ball-top" id="ball_top_text">原油</div>
+            <div class="ball-half ball-bottom">全球<br>产值</div>
+        </div>
+        <div class="ball-menu" id="vol_menu">
+            <div class="ball-menu-item active" onclick="selectCrop('oil', '原油')">原油</div>
+            <div class="ball-menu-item" onclick="selectCrop('wheat', '小麦')">小麦</div>
+            <div class="ball-menu-item" onclick="selectCrop('maize', '玉米')">玉米</div>
+            <div class="ball-menu-item" onclick="selectCrop('soybeans', '大豆')">大豆</div>
+            <div class="ball-menu-item" onclick="selectCrop('cotton', '棉花')">棉花</div>
+            <div class="ball-menu-item" onclick="selectCrop('palm_oil', '棕榈油')">棕榈油</div>
+        </div>
+    </div>
+    <div id="chart_vol_gdp_timeseries" style="height: 100%; width: 100%;"></div>
 </div>
-<div class="corr-table" id="dl_results_table"></div>
+
+<h3 class="section-subtitle">3.2 波动率滞后相关性分析</h3>
+<div class="chart-container" id="chart_vol_lag_corr" style="height: 500px;"></div>
+<div class="corr-table" id="lag_analysis_table"></div>
+<div class="analysis-text" id="lag_analysis_text" style="max-width: 1200px; margin: 20px auto; padding: 15px; background: #f9f9f9; border-left: 5px solid #2196F3;"></div>
 
 <script>
     var timeChartDom = document.getElementById("chart_timeseries");
@@ -279,49 +395,6 @@
         corrData.push([i, 0, value]);
     }
 
-    if (typeof distLagResults !== "undefined" && distLagResults) {
-        var tbl = document.getElementById("dl_results_table");
-        var items = [];
-        Object.keys(distLagResults).forEach(function(k) {
-            var r = distLagResults[k] || {};
-            items.push({
-                name: r.name || k,
-                bestLag: r.best_lag,
-                rBest: r.r_best_lag,
-                r0: r.r0,
-                rRoll: r.r_roll_mean_4,
-                rMulti: r.r_multi,
-                r2Multi: r.r2_multi,
-                n: r.n_multi
-            });
-        });
-        items.sort(function(a, b) {
-            var A = isFinite(a.r2Multi) ? a.r2Multi : -1e9;
-            var B = isFinite(b.r2Multi) ? b.r2Multi : -1e9;
-            return B - A;
-        });
-        var html = '<div style="font-weight:bold;margin:6px 0;">分布式滞后解释力（单品多滞后 OLS）</div>';
-        html += '<table><thead><tr>';
-        html += '<th>商品</th><th>最佳Lag</th><th style="text-align:right;">r(最佳Lag)</th><th style="text-align:right;">r(当期)</th><th style="text-align:right;">r(滚动均值4)</th><th style="text-align:right;">r(多滞后)</th><th style="text-align:right;">R²(多滞后)</th><th style="text-align:right;">N</th>';
-        html += '</tr></thead><tbody>';
-        items.forEach(function(it) {
-            function fmt(x) { return (x == null || !isFinite(x)) ? '-' : Number(x).toFixed(3); }
-            html += '<tr>';
-            html += '<td>' + it.name + '</td>';
-            html += '<td>' + (it.bestLag == null ? '-' : ('Lag ' + it.bestLag)) + '</td>';
-            html += '<td style="text-align:right;">' + fmt(it.rBest) + '</td>';
-            html += '<td style="text-align:right;">' + fmt(it.r0) + '</td>';
-            html += '<td style="text-align:right;">' + fmt(it.rRoll) + '</td>';
-            html += '<td style="text-align:right;">' + fmt(it.rMulti) + '</td>';
-            html += '<td style="text-align:right;">' + fmt(it.r2Multi) + '</td>';
-            html += '<td style="text-align:right;">' + (it.n || '-') + '</td>';
-            html += '</tr>';
-        });
-        html += '</tbody></table>';
-        html += '<div style="color:#666;margin-top:6px;">表中 r(多滞后)/R² 来自“同一商品多滞后+季度哑变量”的线性拟合，展示相较单一滞后或当期的解释力提升。</div>';
-        tbl.innerHTML = html;
-    }
-
     var corrChartDom = document.getElementById("chart_corr");
     var corrChart = echarts.init(corrChartDom);
 
@@ -452,189 +525,309 @@
 
     corrRelChart.setOption(corrRelOption);
 
-    var corrDataRelVol = [];
-    for (var k = 0; k < corrVars.length; k++) {
-        var v3 = (typeof corrWithRelGdpVol !== "undefined" && corrWithRelGdpVol && corrWithRelGdpVol[k] != null) ? corrWithRelGdpVol[k] : 0;
-        corrDataRelVol.push([k, 0, v3]);
-    }
-
-    var corrRelVolDom = document.getElementById("chart_corr_rel_vol");
-    if (corrRelVolDom) {
-        var corrRelVolChart = echarts.init(corrRelVolDom);
-
-    var corrRelVolOption = {
-        title: {
-            text: "Log波动相关性热力图（ΔLog：第一产业权重GDP vs 商品，Lag 0）",
-            left: "center"
+    var volMethods = {
+        delta: {
+            label: "ΔLog（标准差 σ）",
+            metric: "σ",
+            lag0Title: "价格波动率相关性热力图（ΔLog标准差σ，Lag 0）",
+            lagTitle: "滞后相关性热力图（ΔLog标准差σ）",
+            series: (typeof lagSeriesData !== "undefined" ? lagSeriesData : null),
+            pvals: (typeof lagPvalSeriesData !== "undefined" ? lagPvalSeriesData : null),
+            nLag0: (typeof nWithRelGdpVol !== "undefined" ? nWithRelGdpVol : null),
+            lineSubtext: "商品价格波动率σ(t-k) 与 第一产业权重GDP波动(t) 的相关性"
         },
-        tooltip: {
-            position: "top",
-            formatter: function (params) {
-                var y = corrVars[params.data[1]];
-                var v = params.data[2];
-                var p = (typeof pvalWithRelGdpVol !== "undefined" && pvalWithRelGdpVol && pvalWithRelGdpVol[params.data[0]] != null) ? pvalWithRelGdpVol[params.data[0]] : null;
-                var n = (typeof nWithRelGdpVol !== "undefined" && nWithRelGdpVol && nWithRelGdpVol[params.data[0]] != null) ? nWithRelGdpVol[params.data[0]] : null;
-                var extra = "";
-                if (p != null || n != null) {
-                    extra = " (p=" + formatPValue(p) + (n != null ? ", N=" + n : "") + ")";
+        ewma: {
+            label: "EWMA（指数加权）",
+            metric: "σ",
+            lag0Title: "价格波动率相关性热力图（EWMA σ，Lag 0）",
+            lagTitle: "滞后相关性热力图（EWMA σ）",
+            series: (typeof lagSeriesDataEWMA !== "undefined" ? lagSeriesDataEWMA : null),
+            pvals: (typeof lagPvalSeriesDataEWMA !== "undefined" ? lagPvalSeriesDataEWMA : null),
+            nLag0: null,
+            lineSubtext: "EWMA波动率σ(t-k) 与 第一产业权重GDP波动(t) 的相关性"
+        },
+        shock: {
+            label: "预白化冲击（创新项）",
+            metric: "冲击",
+            lag0Title: "预白化冲击相关性热力图（Lag 0）",
+            lagTitle: "滞后相关性热力图（预白化冲击）",
+            series: (typeof lagSeriesDataShock !== "undefined" ? lagSeriesDataShock : null),
+            pvals: (typeof lagPvalSeriesDataShock !== "undefined" ? lagPvalSeriesDataShock : null),
+            nLag0: null,
+            lineSubtext: "预白化冲击(t-k) 与 第一产业权重GDP波动(t) 的相关性"
+        }
+    };
+
+    function pickBestLagIndex(arr, pvals) {
+        var bestIdx = -1;
+        var bestAbs = -1;
+        if (arr && arr.length) {
+            for (var i = 0; i < arr.length; i++) {
+                var v = arr[i];
+                if (v == null || isNaN(v)) continue;
+                var p = (pvals && pvals[i] != null) ? pvals[i] : null;
+                if (p == null || isNaN(p) || p > 0.05) continue;
+                var a = Math.abs(v);
+                if (a > bestAbs) {
+                    bestAbs = a;
+                    bestIdx = i;
                 }
-                return y + " 与 ΔLog(权重GDP) 的相关系数: " + v.toFixed(2) + extra;
             }
-        },
-        xAxis: {
-            type: "category",
-            data: corrVars,
-            axisLabel: { rotate: 45 }
-        },
-        yAxis: {
-            type: "category",
-            data: ["ΔLog(权重GDP)"]
-        },
-        grid: { top: 80, left: "10%", right: "12%", bottom: 60, containLabel: true },
-        visualMap: {
-            min: -1,
-            max: 1,
-            calculable: true,
-            orient: "horizontal",
-            left: "center",
-            bottom: 10,
-            inRange: {
-                color: ["#313695", "#FFFFBF", "#A50026"]
-            }
-        },
-        series: [
-            {
-                type: "heatmap",
-                data: corrDataRelVol,
-                label: {
-                    show: true,
-                    formatter: function (params) {
-                        var p = (typeof pvalWithRelGdpVol !== "undefined" && pvalWithRelGdpVol && pvalWithRelGdpVol[params.data[0]] != null) ? pvalWithRelGdpVol[params.data[0]] : null;
-                        var star = p != null ? (p <= 0.01 ? "**" : (p <= 0.05 ? "*" : "")) : "";
-                        return params.data[2].toFixed(2) + star;
+            if (bestIdx < 0) {
+                bestAbs = -1;
+                for (var k = 0; k < arr.length; k++) {
+                    var vv = arr[k];
+                    if (vv == null || isNaN(vv)) continue;
+                    var aa = Math.abs(vv);
+                    if (aa > bestAbs) {
+                        bestAbs = aa;
+                        bestIdx = k;
                     }
                 }
             }
-        ]
-    };
-
-        corrRelVolChart.setOption(corrRelVolOption);
+        }
+        return bestIdx;
     }
 
-    if (typeof lagSeriesData !== "undefined" && lagSeriesData && lagSeriesData.length > 0) {
-        var lagHeatDom = document.getElementById("chart_corr_rel_vol_lag");
-        if (lagHeatDom) {
-        var lagHeatChart = echarts.init(lagHeatDom);
-        var lagShow = (lagKeys && lagKeys.length >= 5) ? lagKeys.slice(0, 5) : lagKeys;
-        var lagHeatData = [];
-        for (var j = 0; j < corrVars.length; j++) {
-            for (var i = 0; i < lagShow.length; i++) {
-                var v = (lagSeriesData[j] && lagSeriesData[j][i] != null) ? lagSeriesData[j][i] : 0;
-                lagHeatData.push([i, j, v]);
-            }
+    function getMethod(key) {
+        if (!key || !volMethods[key] || !volMethods[key].series || !volMethods[key].series.length) return null;
+        return volMethods[key];
+    }
+
+    function updateVolLag0Heatmap(chart, methodKey) {
+        if (!chart) return;
+        var method = getMethod(methodKey);
+        if (!method) return;
+
+        var data = [];
+        for (var k = 0; k < corrVars.length; k++) {
+            var v = (method.series && method.series[k] && method.series[k][0] != null) ? method.series[k][0] : null;
+            data.push([k, 0, v == null || isNaN(v) ? 0 : v]);
         }
-        var lagHeatOption = {
-            title: { text: "滞后ΔLog相关性热力图（ΔLog(权重GDP) vs 商品，不同 Lag）", left: "center" },
+
+        var opt = {
+            title: {
+                text: method.lag0Title || ("价格波动率相关性热力图（" + method.label + "，Lag 0）"),
+                left: "center"
+            },
             tooltip: {
                 position: "top",
                 formatter: function (params) {
-                    var x = lagShow[params.data[0]];
-                    var y = corrVars[params.data[1]];
-                    var v = params.data[2];
-                    return y + " × " + x + " : r = " + (v == null ? "-" : v.toFixed(3));
+                    var y = corrVars[params.data[0]];
+                    var r = params.data[2];
+                    var p = (method.pvals && method.pvals[params.data[0]] && method.pvals[params.data[0]][0] != null) ? method.pvals[params.data[0]][0] : null;
+                    var n = (method.nLag0 && method.nLag0[params.data[0]] != null) ? method.nLag0[params.data[0]] : null;
+                    var extra = "";
+                    if (p != null || n != null) {
+                        extra = " (p=" + formatPValue(p) + (n != null ? ", N=" + n : "") + ")";
+                    }
+                    var metric = method.metric || "σ";
+                    return metric + "(" + y + ") 与 ΔLog(权重GDP) 的相关系数: " + (r == null || isNaN(r) ? "-" : Number(r).toFixed(3)) + extra;
                 }
             },
-            grid: { top: 80, left: "8%", right: "10%", bottom: 60, containLabel: true },
-            xAxis: { type: "category", data: lagShow, axisLabel: { rotate: 0 } },
-            yAxis: { type: "category", data: corrVars },
+            xAxis: {
+                type: "category",
+                data: corrVars,
+                axisLabel: { rotate: 45 }
+            },
+            yAxis: {
+                type: "category",
+                data: ["ΔLog(权重GDP)"]
+            },
+            grid: { top: 80, left: "10%", right: "12%", bottom: 60, containLabel: true },
             visualMap: {
-                min: -1, max: 1, calculable: true, orient: "horizontal", left: "center", bottom: 10,
+                min: -1,
+                max: 1,
+                calculable: true,
+                orient: "horizontal",
+                left: "center",
+                bottom: 10,
                 inRange: { color: ["#313695", "#FFFFBF", "#A50026"] }
             },
             series: [
-                { type: "heatmap", data: lagHeatData, label: { show: true, formatter: function (p) { return p.data[2].toFixed(2); } } }
+                {
+                    type: "heatmap",
+                    data: data,
+                    label: {
+                        show: true,
+                        formatter: function (p) {
+                            var r = p.data[2];
+                            var pp = (method.pvals && method.pvals[p.data[0]] && method.pvals[p.data[0]][0] != null) ? method.pvals[p.data[0]][0] : null;
+                            var star = pp != null ? (pp <= 0.01 ? "**" : (pp <= 0.05 ? "*" : "")) : "";
+                            if (r == null || isNaN(r)) return "-";
+                            return Number(r).toFixed(2) + star;
+                        }
+                    }
+                }
             ]
         };
-        lagHeatChart.setOption(lagHeatOption);
-        }
+
+        chart.setOption(opt, true);
     }
 
-    if (typeof lagSeriesDataEWMA !== "undefined" && lagSeriesDataEWMA && lagSeriesDataEWMA.length > 0) {
-        var lagHeatDomE = document.getElementById("chart_corr_rel_vol_ewma");
-        if (lagHeatDomE) {
-        var lagHeatChartE = echarts.init(lagHeatDomE);
-        var lagShowE = (lagKeys && lagKeys.length >= 5) ? lagKeys.slice(0, 5) : lagKeys;
-        var lagHeatDataE = [];
+    function updateVolLagHeatmap(chart, methodKey) {
+        if (!chart) return;
+        var method = getMethod(methodKey);
+        if (!method) return;
+
+        var heatData = [];
         for (var j = 0; j < corrVars.length; j++) {
-            for (var i = 0; i < lagShowE.length; i++) {
-                var v = (lagSeriesDataEWMA[j] && lagSeriesDataEWMA[j][i] != null) ? lagSeriesDataEWMA[j][i] : 0;
-                lagHeatDataE.push([i, j, v]);
+            for (var i = 0; i < lagKeys.length; i++) {
+                var v = (method.series && method.series[j] && method.series[j][i] != null) ? method.series[j][i] : null;
+                heatData.push([i, j, v == null || isNaN(v) ? 0 : v]);
             }
         }
-        var lagHeatOptionE = {
-            title: { text: "滞后相关性热力图（EWMA ΔLog 特征）", left: "center" },
-            tooltip: { position: "top", formatter: function (p) { var x = lagShowE[p.data[0]]; var y = corrVars[p.data[1]]; var v = p.data[2]; var pp = (typeof lagPvalSeriesDataEWMA !== 'undefined' && lagPvalSeriesDataEWMA[p.data[1]] && lagPvalSeriesDataEWMA[p.data[1]][p.data[0]] != null) ? lagPvalSeriesDataEWMA[p.data[1]][p.data[0]] : null; var star = pp != null ? (pp <= 0.01 ? ' **' : (pp <= 0.05 ? ' *' : '')) : ''; var ptxt = pp != null ? ('; p=' + pp.toFixed(3)) : ''; return y + ' × ' + x + ' : r=' + (v == null ? '-' : v.toFixed(3)) + star + ptxt; } },
-            grid: { top: 80, left: "8%", right: "10%", bottom: 60, containLabel: true },
-            xAxis: { type: "category", data: lagShowE },
-            yAxis: { type: "category", data: corrVars },
-            visualMap: { min: -1, max: 1, calculable: true, orient: "horizontal", left: "center", bottom: 10, inRange: { color: ["#313695", "#FFFFBF", "#A50026"] } },
-            series: [ { type: "heatmap", data: lagHeatDataE, label: { show: true, formatter: function (p) { var pp = (typeof lagPvalSeriesDataEWMA !== 'undefined' && lagPvalSeriesDataEWMA[p.data[1]] && lagPvalSeriesDataEWMA[p.data[1]][p.data[0]] != null) ? lagPvalSeriesDataEWMA[p.data[1]][p.data[0]] : null; var star = pp != null ? (pp <= 0.01 ? '**' : (pp <= 0.05 ? '*' : '')) : ''; return p.data[2].toFixed(2) + star; } } } ]
-        };
-        lagHeatChartE.setOption(lagHeatOptionE);
-        }
-    }
-    if (typeof lagSeriesDataShock !== "undefined" && lagSeriesDataShock && lagSeriesDataShock.length > 0) {
-        var lagHeatDomS = document.getElementById("chart_corr_rel_vol_shock");
-        if (lagHeatDomS) {
-        var lagHeatChartS = echarts.init(lagHeatDomS);
-        var lagShowS = (lagKeys && lagKeys.length >= 5) ? lagKeys.slice(0, 5) : lagKeys;
-        var lagHeatDataS = [];
-        for (var j = 0; j < corrVars.length; j++) {
-            for (var i = 0; i < lagShowS.length; i++) {
-                var v = (lagSeriesDataShock[j] && lagSeriesDataShock[j][i] != null) ? lagSeriesDataShock[j][i] : 0;
-                lagHeatDataS.push([i, j, v]);
-            }
-        }
-        var lagHeatOptionS = {
-            title: { text: "滞后相关性热力图（预白化冲击）", left: "center" },
-            tooltip: { position: "top", formatter: function (p) { var x = lagShowS[p.data[0]]; var y = corrVars[p.data[1]]; var v = p.data[2]; var pp = (typeof lagPvalSeriesDataShock !== 'undefined' && lagPvalSeriesDataShock[p.data[1]] && lagPvalSeriesDataShock[p.data[1]][p.data[0]] != null) ? lagPvalSeriesDataShock[p.data[1]][p.data[0]] : null; var star = pp != null ? (pp <= 0.01 ? ' **' : (pp <= 0.05 ? ' *' : '')) : ''; var ptxt = pp != null ? ('; p=' + pp.toFixed(3)) : ''; return y + ' × ' + x + ' : r=' + (v == null ? '-' : v.toFixed(3)) + star + ptxt; } },
-            grid: { top: 80, left: "8%", right: "10%", bottom: 60, containLabel: true },
-            xAxis: { type: "category", data: lagShowS },
-            yAxis: { type: "category", data: corrVars },
-            visualMap: { min: -1, max: 1, calculable: true, orient: "horizontal", left: "center", bottom: 10, inRange: { color: ["#313695", "#FFFFBF", "#A50026"] } },
-            series: [ { type: "heatmap", data: lagHeatDataS, label: { show: true, formatter: function (p) { var pp = (typeof lagPvalSeriesDataShock !== 'undefined' && lagPvalSeriesDataShock[p.data[1]] && lagPvalSeriesDataShock[p.data[1]][p.data[0]] != null) ? lagPvalSeriesDataShock[p.data[1]][p.data[0]] : null; var star = pp != null ? (pp <= 0.01 ? '**' : (pp <= 0.05 ? '*' : '')) : ''; return p.data[2].toFixed(2) + star; } } } ]
-        };
-        lagHeatChartS.setOption(lagHeatOptionS);
-        }
-    }
-    if (typeof lagSeriesData !== 'undefined' && lagSeriesData && typeof lagPvalSeriesData !== 'undefined' && lagPvalSeriesData) {
-        if (typeof corrVars !== 'undefined' && corrVars && corrVars.length > 0) {
-            var domLag = document.getElementById("chart_corr_rel_vol_lag");
-            if (domLag) {
-            var chartLag = echarts.init(domLag);
-            var lagShow0 = (lagKeys && lagKeys.length >= 5) ? lagKeys.slice(0, 5) : lagKeys;
-            var dataLag0 = [];
-            for (var j = 0; j < corrVars.length; j++) {
-                for (var i = 0; i < lagShow0.length; i++) {
-                    var v = (lagSeriesData[j] && lagSeriesData[j][i] != null) ? lagSeriesData[j][i] : 0;
-                    dataLag0.push([i, j, v]);
+
+        var opt = {
+            title: { text: method.lagTitle || ("滞后相关性热力图（" + method.label + "）"), left: "center" },
+            tooltip: {
+                position: "top",
+                formatter: function (p) {
+                    var x = lagKeys[p.data[0]];
+                    var y = corrVars[p.data[1]];
+                    var v = p.data[2];
+                    var pp = (method.pvals && method.pvals[p.data[1]] && method.pvals[p.data[1]][p.data[0]] != null) ? method.pvals[p.data[1]][p.data[0]] : null;
+                    var star = pp != null ? (pp <= 0.01 ? " **" : (pp <= 0.05 ? " *" : "")) : "";
+                    var ptxt = pp != null ? ("; p=" + formatPValue(pp)) : "";
+                    return y + " × " + x + " : r=" + (v == null || isNaN(v) ? "-" : Number(v).toFixed(3)) + star + ptxt;
                 }
-            }
-            var optLag0 = {
-                title: { text: "滞后相关性热力图（原始 ΔLog）", left: "center" },
-                tooltip: { position: "top", formatter: function (p) { var x = lagShow0[p.data[0]]; var y = corrVars[p.data[1]]; var v = p.data[2]; var pp = (lagPvalSeriesData[p.data[1]] && lagPvalSeriesData[p.data[1]][p.data[0]] != null) ? lagPvalSeriesData[p.data[1]][p.data[0]] : null; var star = pp != null ? (pp <= 0.01 ? ' **' : (pp <= 0.05 ? ' *' : '')) : ''; var ptxt = pp != null ? ('; p=' + pp.toFixed(3)) : ''; return y + ' × ' + x + ' : r=' + (v == null ? '-' : v.toFixed(3)) + star + ptxt; } },
-                grid: { top: 80, left: "8%", right: "10%", bottom: 60, containLabel: true },
-                xAxis: { type: "category", data: lagShow0 },
-                yAxis: { type: "category", data: corrVars },
-                visualMap: { min: -1, max: 1, calculable: true, orient: "horizontal", left: "center", bottom: 10, inRange: { color: ["#313695", "#FFFFBF", "#A50026"] } },
-                series: [ { type: "heatmap", data: dataLag0, label: { show: true, formatter: function (p) { var pp = (lagPvalSeriesData[p.data[1]] && lagPvalSeriesData[p.data[1]][p.data[0]] != null) ? lagPvalSeriesData[p.data[1]][p.data[0]] : null; var star = pp != null ? (pp <= 0.01 ? '**' : (pp <= 0.05 ? '*' : '')) : ''; return p.data[2].toFixed(2) + star; } } } ]
-            };
-            chartLag.setOption(optLag0);
-            }
-        }
+            },
+            grid: { top: 80, left: "8%", right: "10%", bottom: 70, containLabel: true },
+            xAxis: { type: "category", data: lagKeys },
+            yAxis: { type: "category", data: corrVars },
+            visualMap: {
+                min: -1,
+                max: 1,
+                calculable: true,
+                orient: "horizontal",
+                left: "center",
+                bottom: 10,
+                inRange: { color: ["#313695", "#FFFFBF", "#A50026"] }
+            },
+            series: [
+                {
+                    type: "heatmap",
+                    data: heatData,
+                    label: {
+                        show: true,
+                        formatter: function (p) {
+                            var r = p.data[2];
+                            var pp = (method.pvals && method.pvals[p.data[1]] && method.pvals[p.data[1]][p.data[0]] != null) ? method.pvals[p.data[1]][p.data[0]] : null;
+                            var star = pp != null ? (pp <= 0.01 ? "**" : (pp <= 0.05 ? "*" : "")) : "";
+                            if (r == null || isNaN(r)) return "-";
+                            return Number(r).toFixed(2) + star;
+                        }
+                    }
+                }
+            ]
+        };
+
+        chart.setOption(opt, true);
     }
+
+    function updateVolLagLineChart(chart, methodKey) {
+        if (!chart) return;
+        var method = getMethod(methodKey);
+        if (!method) return;
+
+        var series = [];
+        for (var j = 0; j < corrVars.length; j++) {
+            var arr = (method.series && method.series[j]) ? method.series[j] : [];
+            var parr = (method.pvals && method.pvals[j]) ? method.pvals[j] : [];
+            var bestIdx = pickBestLagIndex(arr, parr);
+            var bestP = (bestIdx >= 0 && parr && parr[bestIdx] != null) ? parr[bestIdx] : null;
+            var bestV = (bestIdx >= 0 && arr && arr[bestIdx] != null) ? arr[bestIdx] : null;
+            var bestLabel = (bestV == null || isNaN(bestV)) ? "-" : (Number(bestV).toFixed(2) + sigStars(bestP));
+
+            var mp = (bestIdx >= 0 && bestV != null && !isNaN(bestV)) ? [{
+                name: "Best",
+                coord: [bestIdx, bestV],
+                value: bestLabel,
+                label: { show: true, formatter: "{c}" }
+            }] : [];
+
+            series.push({
+                name: corrVars[j],
+                type: "line",
+                data: arr,
+                smooth: true,
+                symbol: "circle",
+                symbolSize: 6,
+                lineStyle: { width: 2 },
+                markPoint: { symbol: "pin", symbolSize: 44, data: mp }
+            });
+        }
+
+        var opt = {
+            title: {
+                text: "滞后相关性分析 (Lagged Correlation Analysis)",
+                subtext: method.lineSubtext,
+                left: "center"
+            },
+            tooltip: {
+                trigger: "axis",
+                formatter: function (params) {
+                    var name = params && params.length ? params[0].axisValue : "";
+                    var html = name + "<br/>";
+                    for (var i = 0; i < params.length; i++) {
+                        var val = params[i].value;
+                        var sIdx = params[i].seriesIndex;
+                        var dIdx = params[i].dataIndex;
+                        var pp = (method.pvals && method.pvals[sIdx] && method.pvals[sIdx][dIdx] != null) ? method.pvals[sIdx][dIdx] : null;
+                        html += params[i].marker + params[i].seriesName + ": r=" + (val == null || isNaN(val) ? "-" : Number(val).toFixed(3)) + " (p=" + formatPValue(pp) + ")<br/>";
+                    }
+                    return html;
+                }
+            },
+            legend: { data: corrVars, bottom: 10 },
+            grid: { top: 80, left: "5%", right: "5%", bottom: 80, containLabel: true },
+            xAxis: {
+                type: "category",
+                boundaryGap: false,
+                data: lagKeys,
+                name: "滞后期数 (Quarters)",
+                nameLocation: "middle",
+                nameGap: 30
+            },
+            yAxis: {
+                type: "value",
+                name: "相关系数",
+                splitLine: { show: true, lineStyle: { type: "dashed" } }
+            },
+            series: series
+        };
+
+        chart.setOption(opt, true);
+    }
+
+    function renderVolMethodSection(methodKey) {
+        var method = getMethod(methodKey);
+        if (!method) return;
+
+        var lag0Dom = document.getElementById("chart_corr_rel_vol_" + methodKey);
+        var lag0Chart = lag0Dom ? echarts.init(lag0Dom) : null;
+        updateVolLag0Heatmap(lag0Chart, methodKey);
+
+        var heatDom = document.getElementById("chart_vol_lag_heatmap_" + methodKey);
+        var heatChart = heatDom ? echarts.init(heatDom) : null;
+        updateVolLagHeatmap(heatChart, methodKey);
+
+        var lineDom = document.getElementById("chart_lags_" + methodKey);
+        var lineChart = lineDom ? echarts.init(lineDom) : null;
+        updateVolLagLineChart(lineChart, methodKey);
+
+        var metric = method.metric || "σ";
+        var tableTitle = (metric === "冲击" ? "预白化冲击" : ("价格波动率（" + metric + "）")) + "滞后相关汇总：最佳预测提前期（显著优先，p≤0.05；否则取|r|最大）";
+        renderVolLagSummaryTable("corr_values_vol_lags_" + methodKey, tableTitle, corrVars, lagKeys, method.series, method.pvals);
+    }
+
+    // renderVolMethodSection("delta");
+    // renderVolMethodSection("ewma");
+    // renderVolMethodSection("shock");
+
     if (typeof agriFactorLag !== "undefined" && agriFactorLag && agriFactorLag.length > 0) {
         var domF = document.getElementById("chart_agri_factor_lag");
+        if (domF) {
         var cF = echarts.init(domF);
         var sigF = [];
         if (typeof agriFactorLagP !== "undefined" && agriFactorLagP) {
@@ -655,9 +848,11 @@
             ]
         };
         cF.setOption(optF);
+        }
     }
     if (typeof agriFactorLagEWMA !== "undefined" && agriFactorLagEWMA && agriFactorLagEWMA.length > 0) {
         var domFE = document.getElementById("chart_agri_factor_lag_ewma");
+        if (domFE) {
         var cFE = echarts.init(domFE);
         var sigFE = [];
         if (typeof agriFactorLagEWMAP !== "undefined" && agriFactorLagEWMAP) {
@@ -678,9 +873,11 @@
             ]
         };
         cFE.setOption(optFE);
+        }
     }
     if (typeof agriFactorLagShock !== "undefined" && agriFactorLagShock && agriFactorLagShock.length > 0) {
         var domFS = document.getElementById("chart_agri_factor_lag_shock");
+        if (domFS) {
         var cFS = echarts.init(domFS);
         var sigFS = [];
         if (typeof agriFactorLagShockP !== "undefined" && agriFactorLagShockP) {
@@ -701,323 +898,8 @@
             ]
         };
         cFS.setOption(optFS);
-    }
-
-    // 合并终图（仅显示最终图）：为每个商品在 原始/EWMA/冲击 三类与所有 Lag 中选取 |r| 最大且优先显著（p<=0.05），绘制条形图
-    (function () {
-        var finalDom = document.getElementById("chart_volatility_final");
-        if (!finalDom || typeof corrVars === "undefined" || !corrVars || corrVars.length === 0) return;
-        function pickBest(j) {
-            var candidates = [];
-            var methods = [
-                { key: "原始ΔLog", data: typeof lagSeriesData !== "undefined" ? lagSeriesData : null, p: typeof lagPvalSeriesData !== "undefined" ? lagPvalSeriesData : null, color: "#428bca" },
-                { key: "EWMA", data: typeof lagSeriesDataEWMA !== "undefined" ? lagSeriesDataEWMA : null, p: typeof lagPvalSeriesDataEWMA !== "undefined" ? lagPvalSeriesDataEWMA : null, color: "#5cb85c" },
-                { key: "预白化冲击", data: typeof lagSeriesDataShock !== "undefined" ? lagSeriesDataShock : null, p: typeof lagPvalSeriesDataShock !== "undefined" ? lagPvalSeriesDataShock : null, color: "#d9534f" }
-            ];
-            for (var m = 0; m < methods.length; m++) {
-                var arr = methods[m].data && methods[m].data[j] ? methods[m].data[j] : null;
-                if (!arr) continue;
-                for (var i = 0; i < arr.length; i++) {
-                    var r = arr[i];
-                    var pv = methods[m].p && methods[m].p[j] ? methods[m].p[j][i] : null;
-                    candidates.push({ r: r, abs: Math.abs(r), p: pv, lag: i, method: methods[m].key, color: methods[m].color });
-                }
-            }
-            // 优先显著（p<=0.05）再按 |r| 排序
-            candidates.sort(function(a, b) {
-                var asig = (a.p != null && a.p <= 0.05) ? 1 : 0;
-                var bsig = (b.p != null && b.p <= 0.05) ? 1 : 0;
-                if (asig !== bsig) return bsig - asig;
-                if (b.abs !== a.abs) return b.abs - a.abs;
-                return a.lag - b.lag;
-            });
-            return candidates.length ? candidates[0] : { r: 0, p: null, lag: 0, method: "-", color: "#999" };
-        }
-        var cats = [], vals = [], colors = [], labels = [];
-        for (var j = 0; j < corrVars.length; j++) {
-            var best = pickBest(j);
-            cats.push(corrVars[j]);
-            vals.push(best.r);
-            colors.push(best.color);
-            var star = (best.p != null) ? (best.p <= 0.01 ? " **" : (best.p <= 0.05 ? " *" : "")) : "";
-            labels.push("Lag " + best.lag + " · " + best.method + star);
-        }
-        var chart = echarts.init(finalDom);
-        var option = {
-            title: { text: "ΔLog(权重GDP) × 商品：最佳滞后相关（合并原始/EWMA/冲击）", left: "center" },
-            tooltip: { trigger: "axis", axisPointer: { type: "shadow" }, formatter: function (p) {
-                var i = p[0].dataIndex;
-                return cats[i] + "<br/>r=" + (vals[i] == null ? "-" : vals[i].toFixed(3)) + "<br/>" + labels[i];
-            }},
-            grid: { top: 80, left: "8%", right: "6%", bottom: 80, containLabel: true },
-            xAxis: { type: "category", data: cats, axisLabel: { rotate: 45 } },
-            yAxis: { type: "value", min: -1, max: 1 },
-            series: [{
-                type: "bar",
-                data: vals.map(function(v, i) { return { value: v, itemStyle: { color: colors[i] }, label: { show: true, position: "top", formatter: function() { return (v == null ? "-" : v.toFixed(2)) + "\\n" + labels[i]; } } }; }),
-                barMaxWidth: 26
-            }],
-            legend: { show: true, data: ["原始ΔLog", "EWMA", "预白化冲击"], top: 30 }
-        };
-        chart.setOption(option);
-    })();
-    
-    // 最佳滞后联动热力图：与“合并终图”一致，按每个商品的最佳方法与滞后显示 r
-    (function () {
-        var bestDom = document.getElementById("chart_best_heatmap");
-        if (!bestDom) return;
-        if (typeof corrVars === "undefined" || !corrVars || corrVars.length === 0) {
-            bestDom.innerHTML = "<div class='note-small'>数据未加载，无法构建最佳热力图。</div>";
-            return;
-        }
-        function pickBest(j) {
-            var candidates = [];
-            var methods = [
-                { key: "原始ΔLog", data: typeof lagSeriesData !== "undefined" ? lagSeriesData : null, p: typeof lagPvalSeriesData !== "undefined" ? lagPvalSeriesData : null },
-                { key: "EWMA", data: typeof lagSeriesDataEWMA !== "undefined" ? lagSeriesDataEWMA : null, p: typeof lagPvalSeriesDataEWMA !== "undefined" ? lagPvalSeriesDataEWMA : null },
-                { key: "预白化冲击", data: typeof lagSeriesDataShock !== "undefined" ? lagSeriesDataShock : null, p: typeof lagPvalSeriesDataShock !== "undefined" ? lagPvalSeriesDataShock : null }
-            ];
-            for (var m = 0; m < methods.length; m++) {
-                var arr = methods[m].data && methods[m].data[j] ? methods[m].data[j] : null;
-                if (!arr) continue;
-                for (var i = 0; i < arr.length; i++) {
-                    var r = arr[i];
-                    var pv = methods[m].p && methods[m].p[j] ? methods[m].p[j][i] : null;
-                    candidates.push({ r: r, abs: Math.abs(r), p: pv, lag: i, method: methods[m].key });
-                }
-            }
-            candidates.sort(function(a, b) {
-                var asig = (a.p != null && a.p <= 0.05) ? 1 : 0;
-                var bsig = (b.p != null && b.p <= 0.05) ? 1 : 0;
-                if (asig !== bsig) return bsig - asig;
-                if (b.abs !== a.abs) return b.abs - a.abs;
-                return a.lag - b.lag;
-            });
-            return candidates.length ? candidates[0] : { r: 0, p: null, lag: 0, method: "-" };
-        }
-        var data = [];
-        var labels = [];
-        for (var j = 0; j < corrVars.length; j++) {
-            var b = pickBest(j);
-            data.push([0, j, b.r, b.p, b.lag, b.method]); // x=0, y=j
-            labels.push(b);
-        }
-        var chart = echarts.init(bestDom);
-        var option = {
-            title: { text: "最佳Lag × 方法热力图（与上方终图联动一致）", left: "center" },
-            tooltip: { position: "top", formatter: function (p) {
-                var r = p.data[2];
-                var pv = p.data[3];
-                var lag = p.data[4];
-                var m = p.data[5];
-                var star = pv != null ? (pv <= 0.01 ? " **" : (pv <= 0.05 ? " *" : "")) : "";
-                return corrVars[p.data[1]] + "<br/>r=" + (r == null ? "-" : r.toFixed(3)) + star + "<br/>" + m + " · Lag " + lag;
-            }},
-            grid: { top: 80, left: "12%", right: "10%", bottom: 60, containLabel: true },
-            xAxis: { type: "category", data: ["Best"], axisLabel: { rotate: 0 } },
-            yAxis: { type: "category", data: corrVars },
-            visualMap: { min: -1, max: 1, calculable: true, orient: "horizontal", left: "center", bottom: 10, inRange: { color: ["#313695", "#FFFFBF", "#A50026"] } },
-            series: [{
-                type: "heatmap",
-                data: data,
-                label: {
-                    show: true,
-                    formatter: function (p) {
-                        var r = p.data[2];
-                        var pv = p.data[3];
-                        var star = pv != null ? (pv <= 0.01 ? "**" : (pv <= 0.05 ? "*" : "")) : "";
-                        return (r == null ? "-" : r.toFixed(2)) + star;
-                    }
-                }
-            }]
-        };
-        chart.setOption(option);
-    })();
-    // 基于 EWMA 的滞后相关热力图（核心滞后全貌）
-    (function () {
-        var dom = document.getElementById("chart_lag_heatmap_core");
-        if (!dom) return;
-        if (typeof lagSeriesDataEWMA === "undefined" || !lagSeriesDataEWMA || lagSeriesDataEWMA.length === 0) {
-            dom.innerHTML = "<div class='note-small'>数据未加载，无法构建滞后热力图。</div>";
-            return;
-        }
-        var chart = echarts.init(dom);
-        var showLags = (lagKeys && lagKeys.length >= 6) ? lagKeys.slice(0, 6) : lagKeys; // 展示 0–5
-        var data = [];
-        for (var j = 0; j < corrVars.length; j++) {
-            for (var i = 0; i < showLags.length; i++) {
-                var v = (lagSeriesDataEWMA[j] && lagSeriesDataEWMA[j][i] != null) ? lagSeriesDataEWMA[j][i] : 0;
-                data.push([i, j, v]);
-            }
-        }
-        var option = {
-            title: { text: "滞后相关性热力图（EWMA ΔLog 价格 × ΔLog(权重GDP)）", left: "center" },
-            tooltip: { position: "top", formatter: function (p) {
-                var x = showLags[p.data[0]];
-                var y = corrVars[p.data[1]];
-                var v = p.data[2];
-                var pp = (typeof lagPvalSeriesDataEWMA !== "undefined" && lagPvalSeriesDataEWMA[p.data[1]] && lagPvalSeriesDataEWMA[p.data[1]][p.data[0]] != null) ? lagPvalSeriesDataEWMA[p.data[1]][p.data[0]] : null;
-                var star = pp != null ? (pp <= 0.01 ? " **" : (pp <= 0.05 ? " *" : "")) : "";
-                var ptxt = pp != null ? ("; p=" + pp.toFixed(3)) : "";
-                return y + " × " + x + " : r=" + (v == null ? "-" : v.toFixed(3)) + star + ptxt;
-            }},
-            grid: { top: 80, left: "8%", right: "10%", bottom: 60, containLabel: true },
-            xAxis: { type: "category", data: showLags },
-            yAxis: { type: "category", data: corrVars },
-            visualMap: { min: -1, max: 1, calculable: true, orient: "horizontal", left: "center", bottom: 10, inRange: { color: ["#313695", "#FFFFBF", "#A50026"] } },
-            series: [
-                { type: "heatmap", data: data, label: { show: true, formatter: function (p) {
-                    var pp = (typeof lagPvalSeriesDataEWMA !== "undefined" && lagPvalSeriesDataEWMA[p.data[1]] && lagPvalSeriesDataEWMA[p.data[1]][p.data[0]] != null) ? lagPvalSeriesDataEWMA[p.data[1]][p.data[0]] : null;
-                    var star = pp != null ? (pp <= 0.01 ? "**" : (pp <= 0.05 ? "*" : "")) : "";
-                    return p.data[2].toFixed(2) + star;
-                }}}
-            ]
-        };
-        chart.setOption(option);
-    })();
-    // --- Lagged Correlation Chart ---
-    if (typeof lagSeriesData !== 'undefined' && lagSeriesData && lagSeriesData.length > 0) {
-        var lagChartDom = document.getElementById("chart_lags");
-        if (lagChartDom) {
-        var lagChart = echarts.init(lagChartDom);
-        
-        // Find best lag for each commodity
-        // Strategy: find max absolute correlation
-        // Then highlight this point in the chart
-        
-        var bestLagsInfo = [];
-
-        var lagSeriesList = [];
-        for (var i = 0; i < corrVars.length; i++) {
-            var data = lagSeriesData[i];
-            var maxVal = -1;
-            var maxIdx = -1;
-            
-            // Analyze Lag 0 to Lag 4 (most relevant for short-term prediction)
-            // But let's check all available lags
-            for (var k = 0; k < data.length; k++) {
-                if (Math.abs(data[k]) > maxVal) {
-                    maxVal = Math.abs(data[k]);
-                    maxIdx = k;
-                }
-            }
-            
-            var bestLagLabel = lagKeys[maxIdx];
-            var bestLagVal = data[maxIdx];
-            
-            bestLagsInfo.push({
-                name: corrVars[i],
-                lag: bestLagLabel,
-                val: bestLagVal
-            });
-
-            lagSeriesList.push({
-                name: corrVars[i],
-                type: 'line',
-                data: lagSeriesData[i],
-                smooth: true,
-                symbol: 'circle',
-                symbolSize: function (val, params) {
-                    // Highlight the best lag point
-                    // But we need to find the max index first, which we did above
-                    // The issue is that the echarts callback might not have access to 'maxIdx' from the loop scope correctly due to closure
-                    // Let's store maxIdx in the series object or calculate it inside if needed, 
-                    // or simpler: just use fixed size and rely on markPoint for highlighting
-                    return 6; 
-                },
-                markPoint: {
-                    symbol: 'pin',
-                    symbolSize: 50,
-                    data: [
-                        {
-                            name: '最佳滞后期',
-                            coord: [maxIdx, lagSeriesData[i][maxIdx]],
-                            value: lagSeriesData[i][maxIdx].toFixed(2),
-                            label: {
-                                show: true,
-                                formatter: '{c}'
-                            }
-                        }
-                    ]
-                },
-                lineStyle: {
-                    width: 3
-                }
-            });
-        }
-        
-        // Add Conclusion text to the page
-        var conclusionHtml = '<div style="background:#f9f9f9;padding:15px;border-left:5px solid #2196F3;margin:20px 0;">';
-        conclusionHtml += '<h3>📈 最佳滞后期分析 (Best Lag Analysis)</h3>';
-        conclusionHtml += '<p>通过对比各期相关系数，我们发现不同商品对GDP波动的传导时滞存在差异：</p>';
-        conclusionHtml += '<ul>';
-        for (var i = 0; i < bestLagsInfo.length; i++) {
-            var info = bestLagsInfo[i];
-            conclusionHtml += '<li><b>' + info.name + '</b>: 最佳预测期为 <b>' + info.lag + '</b> (相关系数: ' + info.val.toFixed(3) + ')</li>';
-        }
-        conclusionHtml += '</ul>';
-        conclusionHtml += '<p><b>💡 核心发现：</b>大多数农产品价格波动在 <b>Lag 1 (滞后一季度)</b> 或 <b>Lag 2</b> 达到相关性峰值，说明价格信号传导至宏观经济约需 3-6 个月。建议在预测模型中重点引入滞后 1-2 期变量。</p>';
-        conclusionHtml += '</div>';
-        
-        var lagContainer = document.getElementById("chart_lags");
-        lagContainer.insertAdjacentHTML('afterend', conclusionHtml);
-
-        var lagOption = {
-            title: {
-                text: "滞后相关性分析 (Lagged Correlation Analysis)",
-                subtext: "商品价格波动(t-k) 与 第一产业权重GDP波动(t) 的相关性",
-                left: "center"
-            },
-            tooltip: {
-                trigger: 'axis',
-                formatter: function (params) {
-                    var html = params[0].name + '<br/>';
-                    for (var i = 0; i < params.length; i++) {
-                        var val = params[i].value;
-                        html += params[i].marker + params[i].seriesName + ': ' + val.toFixed(3) + '<br/>';
-                    }
-                    return html;
-                }
-            },
-            legend: {
-                data: corrVars,
-                bottom: 10
-            },
-            grid: {
-                top: 80,
-                left: "5%",
-                right: "5%",
-                bottom: 80,
-                containLabel: true
-            },
-            xAxis: {
-                type: 'category',
-                boundaryGap: false,
-                data: lagKeys,
-                name: "滞后期数 (Quarters)",
-                nameLocation: "middle",
-                nameGap: 30
-            },
-            yAxis: {
-                type: 'value',
-                name: "相关系数",
-                axisLabel: {
-                    formatter: '{value}'
-                },
-                splitLine: {
-                    show: true,
-                    lineStyle: {
-                        type: 'dashed'
-                    }
-                }
-            },
-            series: lagSeriesList
-        };
-
-        lagChart.setOption(lagOption);
         }
     }
-
     // --- Top Predictors Chart (Bar Chart) ---
     if (typeof topPredictors !== 'undefined' && topPredictors) {
         var predictorsChartDom = document.getElementById("chart_predictors");
@@ -1252,6 +1134,76 @@
         document.getElementById(containerId).innerHTML = html;
     }
 
+    function renderVolLagSummaryTable(containerId, title, vars, lagKeys, lagSeries, lagPvals) {
+        var dom = document.getElementById(containerId);
+        if (!dom) return;
+        if (!vars || !lagKeys || !lagSeries) return;
+
+        var html = '<div style="font-weight:bold;margin:6px 0;">' + title + '</div>';
+        html += '<table>';
+        html += '<thead><tr>';
+        html += '<th>变量</th>';
+        html += '<th style="text-align:right;">Lag 0 r</th>';
+        html += '<th style="text-align:right;">p</th>';
+        html += '<th style="text-align:right;">最佳滞后</th>';
+        html += '<th style="text-align:right;">r</th>';
+        html += '<th style="text-align:right;">p</th>';
+        html += '</tr></thead><tbody>';
+
+        for (var j = 0; j < vars.length; j++) {
+            var arr = lagSeries[j] || [];
+            var parr = (lagPvals && lagPvals[j]) ? lagPvals[j] : [];
+
+            var lag0r = (arr.length > 0 && arr[0] != null) ? arr[0] : null;
+            var lag0p = (parr.length > 0 && parr[0] != null) ? parr[0] : null;
+
+            var bestIdx = -1;
+            var bestAbs = -1;
+            for (var i = 0; i < arr.length; i++) {
+                var v = arr[i];
+                if (v == null) continue;
+                var p = (parr && parr[i] != null) ? parr[i] : null;
+                if (p == null || p > 0.05) continue;
+                var a = Math.abs(v);
+                if (a > bestAbs) {
+                    bestAbs = a;
+                    bestIdx = i;
+                }
+            }
+            if (bestIdx < 0) {
+                bestAbs = -1;
+                for (var k = 0; k < arr.length; k++) {
+                    var vv = arr[k];
+                    if (vv == null) continue;
+                    var aa = Math.abs(vv);
+                    if (aa > bestAbs) {
+                        bestAbs = aa;
+                        bestIdx = k;
+                    }
+                }
+            }
+
+            var bestLag = (bestIdx >= 0 && lagKeys[bestIdx] != null) ? lagKeys[bestIdx] : "-";
+            var bestr = (bestIdx >= 0 && arr[bestIdx] != null) ? arr[bestIdx] : null;
+            var bestp = (bestIdx >= 0 && parr && parr[bestIdx] != null) ? parr[bestIdx] : null;
+
+            var lag0rText = lag0r == null ? "-" : (Number(lag0r).toFixed(3) + sigStars(lag0p));
+            var bestrText = bestr == null ? "-" : (Number(bestr).toFixed(3) + sigStars(bestp));
+
+            html += '<tr>';
+            html += '<td>' + vars[j] + '</td>';
+            html += '<td class="value">' + lag0rText + '</td>';
+            html += '<td class="value">' + formatPValue(lag0p) + '</td>';
+            html += '<td class="value">' + bestLag + '</td>';
+            html += '<td class="value">' + bestrText + '</td>';
+            html += '<td class="value">' + formatPValue(bestp) + '</td>';
+            html += '</tr>';
+        }
+
+        html += '</tbody></table>';
+        dom.innerHTML = html;
+    }
+
     function renderElasticityFullTable(containerId, title, vars) {
         var html = '<div style="font-weight:bold;margin:6px 0;">' + title + '</div>';
         html += '<table>';
@@ -1294,6 +1246,331 @@
 
     renderCorrTable("corr_values_gdp", "GDP水平与商品的相关系数", corrVars, corrWithGdp);
     renderElasticityFullTable("corr_values_rel", "Log(第一产业权重GDP)与Log(商品)的相关系数（典型值）及 Log波动相关（ΔLog）", corrVars);
+
+    // --- Render New Volatility vs GDP Chart (With Ball Selector) ---
+    var myChartVol; // Global for update
+    var currentVolSeries = 'vol_oil'; // Default
+    var currentVolName = '原油(Oil)'; // Default
+    
+    // Define Color Map
+    var cropColors = {
+        'oil': { color: '#333333', gradient: ['#333333', '#555555'], area: ['rgba(51, 51, 51, 0.3)', 'rgba(51, 51, 51, 0.1)'] },
+        'wheat': { color: '#FFD700', gradient: ['#FFD700', '#F0E68C'], area: ['rgba(255, 215, 0, 0.3)', 'rgba(255, 215, 0, 0.1)'] },
+        'maize': { color: '#FF8C00', gradient: ['#FF8C00', '#FFA500'], area: ['rgba(255, 140, 0, 0.3)', 'rgba(255, 140, 0, 0.1)'] },
+        'soybeans': { color: '#556B2F', gradient: ['#556B2F', '#6B8E23'], area: ['rgba(85, 107, 47, 0.3)', 'rgba(85, 107, 47, 0.1)'] },
+        'cotton': { color: '#9370DB', gradient: ['#9370DB', '#BA55D3'], area: ['rgba(147, 112, 219, 0.3)', 'rgba(147, 112, 219, 0.1)'] },
+        'palm_oil': { color: '#8B4513', gradient: ['#8B4513', '#A0522D'], area: ['rgba(139, 69, 19, 0.3)', 'rgba(139, 69, 19, 0.1)'] }
+    };
+
+    // Toggle Menu
+    function toggleMenu() {
+        var menu = document.getElementById('vol_menu');
+        menu.classList.toggle('show');
+    }
+    
+    // Select Crop
+    function selectCrop(key, name) {
+        currentVolSeries = 'vol_' + key;
+        currentVolName = name;
+        
+        // Update Ball Top Text (Chinese only)
+        var topText = document.getElementById('ball_top_text');
+        if (topText) {
+            var parts = name.split('(');
+            var zh = parts[0];
+            // var en = parts.length > 1 ? parts[1].replace(')', '') : '';
+            topText.innerHTML = zh;
+        }
+
+        // Update Ball Top Color (only top half) with glass effect
+        var ballTop = document.querySelector('.ball-top');
+        var colors = cropColors[key];
+        if (colors && ballTop) {
+            // Use rgba for glass effect based on the crop color
+            // Convert hex to rgba is complex, let's use the 'area' property if available which is rgba
+            // Or manually construct a semi-transparent gradient
+            if(colors.area) {
+                 ballTop.style.background = `linear-gradient(135deg, ${colors.area[0].replace('0.3', '0.8')}, ${colors.area[1].replace('0.1', '0.6')})`;
+            } else {
+                 ballTop.style.background = `linear-gradient(135deg, ${colors.gradient[0]}, ${colors.gradient[1]})`;
+            }
+        }
+
+        // Update menu active state
+        var items = document.querySelectorAll('.ball-menu-item');
+        items.forEach(item => {
+            if(item.textContent.includes(name.split('(')[0])) { // Simple match
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+        
+        // Update Chart
+        updateVolChart(key);
+        
+        // Close menu
+        document.getElementById('vol_menu').classList.remove('show');
+    }
+
+    function updateVolChart(key) {
+        if (!myChartVol || !volatility_gdp_data) return;
+        
+        // Default to oil if key not provided
+        var cropKey = key || currentVolSeries.replace('vol_', '');
+        var style = cropColors[cropKey] || cropColors['oil'];
+
+        var option = {
+            title: { 
+                text: `${currentVolName}波动率 vs 权重GDP趋势`,
+                left: 'center',
+                top: 5 // Moved up slightly
+            },
+            tooltip: { 
+                trigger: 'axis',
+                axisPointer: { type: 'cross' }
+            },
+            legend: { 
+                data: [currentVolName, '权重GDP'],
+                top: 35 // Moved up slightly
+            },
+            grid: { 
+                top: 85, // Adjusted top margin to be compact but avoid overlap
+                left: '3%', 
+                right: '150px', // Make room for the ball on the right
+                bottom: 60, 
+                containLabel: true 
+            },
+            dataZoom: [
+                {
+                    type: 'slider',
+                    show: true,
+                    xAxisIndex: [0],
+                    start: 0,
+                    end: 100,
+                    bottom: 10
+                },
+                {
+                    type: 'inside',
+                    xAxisIndex: [0],
+                    start: 0,
+                    end: 100
+                }
+            ],
+            xAxis: { type: 'category', data: volatility_gdp_data.quarter },
+            yAxis: [
+                { 
+                    type: 'value', 
+                    name: '波动率(Std Dev)', 
+                    position: 'left',
+                    splitLine: { show: false },
+                    nameTextStyle: { padding: [0, 0, 0, 20] } // Add padding to avoid overlap with ball
+                },
+                { 
+                    type: 'value', 
+                    name: 'GDP(亿元)', 
+                    position: 'right', 
+                    axisLabel: { formatter: '{value}' },
+                    splitLine: { show: false }
+                }
+            ],
+            series: [
+                { 
+                    name: currentVolName, 
+                    type: 'line', 
+                    data: volatility_gdp_data[currentVolSeries], 
+                    yAxisIndex: 0,
+                    smooth: true,
+                    lineStyle: { width: 1.5, color: style.color }, // Thinner line
+                    itemStyle: { color: style.color },
+                    areaStyle: { 
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: style.area[0] },
+                            { offset: 1, color: style.area[1] }
+                        ])
+                    }
+                },
+                { 
+                    name: '权重GDP', 
+                    type: 'line', 
+                    data: volatility_gdp_data.weighted_gdp, 
+                    yAxisIndex: 1,
+                    smooth: true,
+                    itemStyle: { color: '#d9534f' },
+                    lineStyle: { type: 'dashed', width: 1.5, opacity: 0.7 } // Thinner line
+                }
+            ]
+        };
+        myChartVol.setOption(option, true); // true = not merge, replace
+    }
+
+    if (typeof volatility_gdp_data !== 'undefined' && volatility_gdp_data.quarter && volatility_gdp_data.quarter.length > 0) {
+        var volDom = document.getElementById("chart_vol_gdp_timeseries");
+        if (volDom) {
+            myChartVol = echarts.init(volDom);
+            // Initial render
+            updateVolChart('oil');
+            
+            // Initialize Ball Top Color (Oil)
+            var ballTop = document.querySelector('.ball-top');
+            var initColors = cropColors['oil'];
+            if (initColors && ballTop) {
+                 if(initColors.area) {
+                      ballTop.style.background = `linear-gradient(135deg, ${initColors.area[0].replace('0.3', '0.8')}, ${initColors.area[1].replace('0.1', '0.6')})`;
+                 } else {
+                      ballTop.style.background = `linear-gradient(135deg, ${initColors.gradient[0]}, ${initColors.gradient[1]})`;
+                 }
+            }
+            
+            // Close menu when clicking outside
+            document.addEventListener('click', function(event) {
+                var isClickInside = document.getElementById('vol_selector').contains(event.target);
+                if (!isClickInside) {
+                    document.getElementById('vol_menu').classList.remove('show');
+                }
+            });
+        }
+    }
+
+    // --- Render Lag Analysis Chart ---
+    if (typeof volatility_lag_data !== 'undefined') {
+        var lagDom = document.getElementById("chart_vol_lag_corr");
+        if (lagDom) {
+            var myChartLag = echarts.init(lagDom);
+            var optionLag = {
+                title: { 
+                    text: '滞后相关性分析: Corr(GDP Growth_t, Volatility_{t-k})',
+                    left: 'center',
+                    top: 10
+                },
+                tooltip: { 
+                    trigger: 'axis'
+                },
+                legend: { 
+                    data: ['原油(Oil)', '小麦(Wheat)', '玉米(Maize)', '大豆(Soybeans)', '棉花(Cotton)', '棕榈油(Palm Oil)'],
+                    top: 40,
+                    type: 'scroll'
+                },
+                grid: { 
+                    top: 90, 
+                    left: '3%', 
+                    right: '4%', 
+                    bottom: 30, 
+                    containLabel: true 
+                },
+                xAxis: { 
+                    type: 'category', 
+                    name: 'Lag (Quarters)',
+                    nameLocation: 'middle',
+                    nameGap: 25,
+                    data: volatility_lag_data.lags 
+                },
+                yAxis: { 
+                    type: 'value', 
+                    name: 'Correlation', 
+                    splitLine: { show: true, lineStyle: { type: 'dashed' } }
+                },
+                series: [
+                    { 
+                        name: '原油(Oil)', 
+                        type: 'line', 
+                        data: volatility_lag_data.series.oil, 
+                        smooth: true
+                    },
+                    { 
+                        name: '小麦(Wheat)', 
+                        type: 'line', 
+                        data: volatility_lag_data.series.wheat, 
+                        smooth: true
+                    },
+                    { 
+                        name: '玉米(Maize)', 
+                        type: 'line', 
+                        data: volatility_lag_data.series.maize, 
+                        smooth: true
+                    },
+                    { 
+                        name: '大豆(Soybeans)', 
+                        type: 'line', 
+                        data: volatility_lag_data.series.soybeans, 
+                        smooth: true
+                    },
+                    { 
+                        name: '棉花(Cotton)', 
+                        type: 'line', 
+                        data: volatility_lag_data.series.cotton, 
+                        smooth: true
+                    },
+                    { 
+                        name: '棕榈油(Palm Oil)', 
+                        type: 'line', 
+                        data: volatility_lag_data.series.palm_oil, 
+                        smooth: true
+                    }
+                ]
+            };
+            myChartLag.setOption(optionLag);
+
+            // --- Render Analysis Table and Text ---
+            if (volatility_lag_data.analysis) {
+                // Table
+                var tableHtml = `
+                    <h4 style="text-align:center;">各作物波动率与GDP增长率的最佳滞后相关性汇总</h4>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Commodity (作物)</th>
+                                <th>Optimal Lag (最佳滞后季度)</th>
+                                <th>Correlation (相关系数)</th>
+                                <th>Impact Type (影响类型)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                var nameMap = {
+                    'oil': '原油 (Crude Oil)',
+                    'wheat': '小麦 (Wheat)',
+                    'maize': '玉米 (Maize)',
+                    'soybeans': '大豆 (Soybeans)',
+                    'cotton': '棉花 (Cotton)',
+                    'palm_oil': '棕榈油 (Palm Oil)'
+                };
+
+                volatility_lag_data.analysis.forEach(item => {
+                    var impact = item.correlation > 0 ? '正向 (Positive)' : '负向 (Negative)';
+                    var color = item.correlation > 0 ? '#d9534f' : '#5cb85c'; // Red for positive (warning?), Green for negative? Or standard.
+                    // Let's use standard: Red for positive corr, Green for negative.
+                    
+                    tableHtml += `
+                        <tr>
+                            <td>${nameMap[item.commodity] || item.commodity}</td>
+                            <td>${item.best_lag} Qtrs (${item.best_lag * 3} Months)</td>
+                            <td style="color: ${color}; font-weight: bold;">${item.correlation}</td>
+                            <td>${impact}</td>
+                        </tr>
+                    `;
+                });
+                
+                tableHtml += `</tbody></table>`;
+                document.getElementById('lag_analysis_table').innerHTML = tableHtml;
+
+                // Analysis Text
+                var analysisHtml = `
+                    <h3>📊 滞后性分析结论 (Lag Analysis Conclusions)</h3>
+                    <p>通过计算不同滞后期 (0-8个季度) 的相关系数，我们发现不同大宗商品的波动率对GDP增长的影响存在显著的时间差异：</p>
+                    <ul>
+                        <li><strong>短期影响 (Short-term):</strong> 棉花 (Cotton) 的波动率在滞后 1 个季度时相关性最强，表明其价格波动对经济的影响反应较快。</li>
+                        <li><strong>中期影响 (Medium-term):</strong> 小麦 (Wheat) 和 棕榈油 (Palm Oil) 分别在滞后 2 和 4 个季度显示出最强的相关性，显示出一定的传导时滞。</li>
+                        <li><strong>长期影响 (Long-term):</strong> 原油 (Oil)、玉米 (Maize) 和 大豆 (Soybeans) 的影响具有较长的滞后性 (6-8个季度)。特别是原油波动率在滞后 6 个季度时表现出负相关 (-0.1594)，符合能源价格波动长期抑制经济增长的理论预期。</li>
+                        <li><strong>相关性方向:</strong> 大部分农作物波动率在特定滞后期表现出正相关，这可能反映了价格波动与经济活跃度（需求拉动）的某种同步或领先关系；而原油和大豆的负相关则更多体现了成本冲击带来的负面影响。</li>
+                    </ul>
+                    <p><strong>最佳滞后点选择建议:</strong> 在构建预测模型或进行因果分析时，建议对不同作物采用上述识别出的最佳滞后阶数，以捕捉最显著的经济传导效应。</p>
+                `;
+                document.getElementById('lag_analysis_text').innerHTML = analysisHtml;
+            }
+        }
+    }
 </script>
 </body>
 </html>
