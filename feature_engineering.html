@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>特征工程与滞后性增强：ΔLog × EWMA × 预白化冲击</title>
+    <title>特征工程</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
     <script src="start_echarts_data.js"></script>
     <style>
@@ -147,17 +147,15 @@
 </head>
 <body>
 <div class="container">
-    <div class="title">特征工程与滞后性增强：ΔLog × EWMA × 预白化冲击</div>
-    <div class="subtitle">用同一套 Lag 可视化框架对比三种处理下的相关性、最佳滞后与显著性，为后续建模特征构造提供依据</div>
+    <div class="title">特征工程</div>
 
     <div class="panel">
-        <h3>方法说明（同一流程下的三种备选处理）</h3>
+        <h3>方法说明（数据处理）</h3>
         <ul>
             <li>ΔLog（对数差分）：将水平量转为变化量/收益，削弱量纲影响，提升可比性与平稳性。</li>
             <li>EWMA：指数加权让近期信息权重更高，使风险集聚更敏感；在 Lag 维度上通常表现为最佳滞后向近期偏移或显著性结构变化。</li>
             <li>预白化冲击：先剔除序列自相关，仅保留“意外冲击”（创新项），再做 Lag 相关性，用于对比传导时间与显著性是否更清晰。</li>
         </ul>
-        <div class="hint">本页把三种处理放在同一套判定规则下对比。若建模时不限制，可把三套特征一起输入；若必须三选一，本页会给出“全局统一推荐方法”。</div>
     </div>
 
     <div class="panel">
@@ -165,10 +163,10 @@
         <div class="controls">
             <label for="commoditySelect">选择品种：</label>
             <select id="commoditySelect"></select>
-            <label for="strategySelect">选择策略：</label>
+            <label for="strategySelect">策略名称：</label>
             <select id="strategySelect">
-                <option value="global">三选一（全局统一）</option>
-                <option value="perCommodity">按品种推荐（允许不同）</option>
+                <option value="global">最优方法</option>
+                <option value="perCommodity">按品种推荐</option>
             </select>
             <button id="btnRefresh" type="button">刷新</button>
         </div>
@@ -177,7 +175,7 @@
     </div>
 
     <div class="panel">
-        <h3>如果方法只能三选一：全局统一推荐</h3>
+        <h3>方法选择</h3>
         <div id="globalMethodTable"></div>
         <div class="hint">全局推荐逻辑：先比较“显著品种数(越多越好)”，再比较“显著品种的平均 |corr|(越大越好)”，最后比较“整体平均 |corr|”。</div>
     </div>
@@ -188,22 +186,11 @@
     </div>
 
     <div class="panel">
-        <h3>全体汇总：推荐方法 × 推荐滞后（用于特征构造）</h3>
+        <h3>汇总</h3>
         <div id="summaryTable"></div>
         <div class="hint">推荐逻辑：在三种方法（ΔLog / EWMA / 冲击）中，优先选择“存在显著 Lag 且 |corr| 最大”的方法与 Lag；若三者都无显著 Lag，则选择 |corr| 最大者。</div>
     </div>
 
-    <div class="panel">
-        <h3>特征工程落地方式（建模输入建议）</h3>
-        <ul>
-            <li>若不限制：对每个商品构造 0–8 季度滞后特征 ΔLog<sub>t-k</sub>、EWMA<sub>t-k</sub>、Shock<sub>t-k</sub> 一起进入模型，让模型选择最有效的信息。</li>
-            <li>若必须三选一：使用“全局统一推荐方法”，然后对每个商品在该方法下选择其最佳滞后作为特征（仍然保持各商品的 Lag 可不同）。</li>
-            <li>可将多商品的推荐滞后特征合并为特征向量，同时保留少量备选 Lag（例如前后各 1 期）以缓解样本期差异。</li>
-            <li>在回归/机器学习中配合正则化或逐步选择，避免滞后特征维度扩张导致的多重共线性。</li>
-        </ul>
-    </div>
-
-    <div class="footer">数据文件：start_echarts_data.js ｜ 页面：feature_engineering.html</div>
 </div>
 
 <script>
@@ -346,7 +333,7 @@
     function pickRecommendationByStrategy(pack, strategy, globalRec) {
         if (strategy === 'global') {
             var key = globalRec.winner.key;
-            return { key: key, item: pack[key], best: bestLagByRule(pack[key].series, pack[key].pvals), strategyLabel: '三选一（全局统一）' };
+            return { key: key, item: pack[key], best: bestLagByRule(pack[key].series, pack[key].pvals), strategyLabel: '全局统一' };
         }
         var rec = methodRecommendation(pack);
         rec.strategyLabel = '按品种推荐';
@@ -389,7 +376,7 @@
             html += '</tr>';
         }
         html += '<tr>';
-        html += '<td colspan="2"><span class="badge ok">推荐</span> ' + rec.item.name + '（' + rec.strategyLabel + '）</td>';
+        html += '<td colspan="2"><span class="badge ok">推荐</span> ' + rec.item.name + '</td>';
         html += '<td>' + ('Lag ' + recBest.lag) + '</td>';
         html += '<td class="num">' + round4(recBest.corr) + '</td>';
         html += '<td class="num">' + (recBest.pval === null ? '' : round6(recBest.pval)) + '</td>';
@@ -403,7 +390,7 @@
         if (!window.corrVars || !Array.isArray(window.corrVars)) return;
         var html = '';
         html += '<table>';
-        html += '<thead><tr><th>品种</th><th>策略</th><th>推荐方法</th><th>推荐滞后</th><th style="text-align:right;">相关系数</th><th style="text-align:right;">p 值</th><th>显著性(p&lt;0.05)</th>';
+        html += '<thead><tr><th>品种</th><th>推荐方法</th><th>推荐滞后</th><th style="text-align:right;">相关系数</th><th style="text-align:right;">p 值</th><th>显著性(p&lt;0.05)</th>';
         html += '<th style="text-align:right;">ΔLog |corr|</th><th style="text-align:right;">EWMA |corr|</th><th style="text-align:right;">冲击 |corr|</th></tr></thead>';
         html += '<tbody>';
         for (var i = 0; i < window.corrVars.length; i++) {
@@ -416,7 +403,6 @@
             var b3 = bestLagByRule(pack.shock.series, pack.shock.pvals);
             html += '<tr>';
             html += '<td>' + name + '</td>';
-            html += '<td>' + rec.strategyLabel + '</td>';
             html += '<td>' + rec.item.name + '</td>';
             html += '<td>' + ('Lag ' + b.lag) + '</td>';
             html += '<td class="num">' + round4(b.corr) + '</td>';
