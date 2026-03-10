@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>特征工程与滞后性增强：ΔLog × EWMA × 预白化冲击</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <script src="start_echarts_data.js"></script>
+    <style>
+        body {
+            font-family: "KaiTi", "楷体", "STKaiti", "FangSong", "仿宋", serif;
+            margin: 0;
+            padding: 20px 40px 20px 100px;
+            box-sizing: border-box;
+            background-color: #fdfbf3;
+            background-image:
+                linear-gradient(90deg, transparent 79px, #ff9999 79px, #ff9999 81px, transparent 81px),
+                linear-gradient(transparent 34px, #e1d9cd 34px, #e1d9cd 35px);
+            background-size: 100% 100%, 100% 35px;
+            background-attachment: fixed;
+            color: #4a3b2a;
+            line-height: 35px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .title {
+            text-align: center;
+            color: #5d4037;
+            font-size: 32px;
+            margin: 30px 0 10px 0;
+            line-height: 40px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #6a4f4a;
+            font-size: 16px;
+            margin: 0 0 25px 0;
+            line-height: 28px;
+        }
+        .panel {
+            border: 1px dashed #8b4513;
+            background: rgba(255,255,255,0.72);
+            padding: 16px 16px;
+            margin: 18px 0;
+        }
+        .panel h3 {
+            margin: 0 0 10px 0;
+            color: #5d4037;
+            font-size: 20px;
+            line-height: 30px;
+        }
+        .panel p, .panel li {
+            font-size: 16px;
+            line-height: 30px;
+            margin: 6px 0;
+        }
+        .controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+            line-height: 28px;
+        }
+        .controls label {
+            font-size: 16px;
+            color: #5d4037;
+        }
+        select, button {
+            font-family: inherit;
+            font-size: 16px;
+            border: 1px solid #8b4513;
+            background: rgba(255,255,255,0.92);
+            color: #4a3b2a;
+            padding: 6px 10px;
+            border-radius: 6px;
+        }
+        button {
+            cursor: pointer;
+        }
+        .chart-wrap {
+            width: 100%;
+            height: 520px;
+            margin-top: 14px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 15px;
+        }
+        th, td {
+            border-bottom: 1px solid #8b4513;
+            padding: 8px 10px;
+            text-align: left;
+            line-height: 26px;
+            color: #4a3b2a;
+        }
+        th {
+            color: #5d4037;
+            font-weight: bold;
+        }
+        td.num {
+            text-align: right;
+            font-family: "Courier New", Courier, monospace;
+            font-weight: bold;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px solid #8b4513;
+            background: rgba(255,255,255,0.9);
+            line-height: 22px;
+            font-size: 14px;
+        }
+        .badge.ok {
+            border-color: #2e7d32;
+            color: #1b5e20;
+        }
+        .badge.no {
+            border-color: #8b4513;
+            color: #6a4f4a;
+        }
+        .hint {
+            font-size: 14px;
+            color: #6a4f4a;
+            line-height: 26px;
+            margin-top: 8px;
+        }
+        .footer {
+            text-align: center;
+            color: #6a4f4a;
+            font-size: 13px;
+            margin: 28px 0 10px 0;
+            line-height: 22px;
+        }
+        @media (max-width: 900px) {
+            body {
+                padding: 16px 16px 16px 72px;
+            }
+            .chart-wrap {
+                height: 520px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="title">特征工程与滞后性增强：ΔLog × EWMA × 预白化冲击</div>
+    <div class="subtitle">用同一套 Lag 可视化框架对比三种处理下的相关性、最佳滞后与显著性，为后续建模特征构造提供依据</div>
+
+    <div class="panel">
+        <h3>方法说明（需要一起使用）</h3>
+        <ul>
+            <li>ΔLog（对数差分）：将水平量转为变化量/收益，削弱量纲影响，提升可比性与平稳性。</li>
+            <li>EWMA：指数加权让近期信息权重更高，使风险集聚更敏感；在 Lag 维度上通常表现为最佳滞后向近期偏移或显著性结构变化。</li>
+            <li>预白化冲击：先剔除序列自相关，仅保留“意外冲击”（创新项），再做 Lag 相关性，用于对比传导时间与显著性是否更清晰。</li>
+        </ul>
+        <div class="hint">本页直接使用已生成的滞后相关系数与 p 值数组：原始 ΔLog、EWMA 平滑、预白化冲击三套结果保持同一商品顺序与同一 Lag 轴（0–8）。</div>
+    </div>
+
+    <div class="panel">
+        <h3>滞后相关性对比（单品种）</h3>
+        <div class="controls">
+            <label for="commoditySelect">选择品种：</label>
+            <select id="commoditySelect"></select>
+            <button id="btnRefresh" type="button">刷新</button>
+        </div>
+        <div id="chart_method_compare" class="chart-wrap"></div>
+        <div class="hint">判定“最佳滞后”规则：优先在 p&lt;0.05 的 Lag 内选择 |corr| 最大；若无显著 Lag，则退回选择 |corr| 最大的 Lag。</div>
+    </div>
+
+    <div class="panel">
+        <h3>当前选择：最佳滞后与显著性</h3>
+        <div id="bestLagTable"></div>
+    </div>
+
+    <div class="panel">
+        <h3>全体汇总：推荐方法 × 推荐滞后（用于特征构造）</h3>
+        <div id="summaryTable"></div>
+        <div class="hint">推荐逻辑：在三种方法（ΔLog / EWMA / 冲击）中，优先选择“存在显著 Lag 且 |corr| 最大”的方法与 Lag；若三者都无显著 Lag，则选择 |corr| 最大者。</div>
+    </div>
+
+    <div class="panel">
+        <h3>特征工程落地方式（建模输入建议）</h3>
+        <ul>
+            <li>对每个商品构造 0–8 季度滞后特征：ΔLog<sub>t-k</sub>、EWMA<sub>t-k</sub>、Shock<sub>t-k</sub>，并使用“推荐方法×推荐滞后”作为优先进入模型的候选特征。</li>
+            <li>可将多商品的推荐滞后特征合并为特征向量，同时保留少量备选 Lag（例如前后各 1 期）以缓解样本期差异。</li>
+            <li>在回归/机器学习中配合正则化或逐步选择，避免滞后特征维度扩张导致的多重共线性。</li>
+        </ul>
+    </div>
+
+    <div class="footer">数据文件：start_echarts_data.js ｜ 页面：feature_engineering.html</div>
+</div>
+
+<script>
+    function isNumber(x) {
+        return typeof x === 'number' && isFinite(x);
+    }
+
+    function round4(x) {
+        if (!isNumber(x)) return '';
+        return (Math.round(x * 10000) / 10000).toFixed(4);
+    }
+
+    function round6(x) {
+        if (!isNumber(x)) return '';
+        return (Math.round(x * 1000000) / 1000000).toFixed(6);
+    }
+
+    function getSeriesPack(idx) {
+        return {
+            dlog: {
+                name: 'ΔLog',
+                series: (window.lagSeriesData && window.lagSeriesData[idx]) ? window.lagSeriesData[idx] : [],
+                pvals: (window.lagPvalSeriesData && window.lagPvalSeriesData[idx]) ? window.lagPvalSeriesData[idx] : []
+            },
+            ewma: {
+                name: 'EWMA',
+                series: (window.lagSeriesDataEWMA && window.lagSeriesDataEWMA[idx]) ? window.lagSeriesDataEWMA[idx] : [],
+                pvals: (window.lagPvalSeriesDataEWMA && window.lagPvalSeriesDataEWMA[idx]) ? window.lagPvalSeriesDataEWMA[idx] : []
+            },
+            shock: {
+                name: '预白化冲击',
+                series: (window.lagSeriesDataShock && window.lagSeriesDataShock[idx]) ? window.lagSeriesDataShock[idx] : [],
+                pvals: (window.lagPvalSeriesDataShock && window.lagPvalSeriesDataShock[idx]) ? window.lagPvalSeriesDataShock[idx] : []
+            }
+        };
+    }
+
+    function bestLagByRule(series, pvals) {
+        var best = { lag: 0, corr: 0, pval: null, significant: false };
+        var bestSigAbs = -1;
+        var bestAbs = -1;
+        for (var k = 0; k < 9; k++) {
+            var c = series && series.length > k ? series[k] : 0;
+            if (!isNumber(c)) c = 0;
+            var p = (pvals && pvals.length > k) ? pvals[k] : null;
+            var hasP = isNumber(p);
+            var sig = hasP ? (p < 0.05) : false;
+            var absC = Math.abs(c);
+            if (sig && absC > bestSigAbs) {
+                bestSigAbs = absC;
+                best = { lag: k, corr: c, pval: p, significant: true };
+            }
+            if (!sig && absC > bestAbs) {
+                bestAbs = absC;
+                if (bestSigAbs < 0) {
+                    best = { lag: k, corr: c, pval: hasP ? p : null, significant: false };
+                }
+            }
+        }
+        return best;
+    }
+
+    function methodRecommendation(pack) {
+        var candidates = [
+            { key: 'dlog', item: pack.dlog, best: bestLagByRule(pack.dlog.series, pack.dlog.pvals) },
+            { key: 'ewma', item: pack.ewma, best: bestLagByRule(pack.ewma.series, pack.ewma.pvals) },
+            { key: 'shock', item: pack.shock, best: bestLagByRule(pack.shock.series, pack.shock.pvals) }
+        ];
+        var sigOnes = candidates.filter(function(x) { return x.best.significant; });
+        var pool = sigOnes.length > 0 ? sigOnes : candidates;
+        pool.sort(function(a, b) {
+            return Math.abs(b.best.corr) - Math.abs(a.best.corr);
+        });
+        return pool[0];
+    }
+
+    function renderBestLagTable(commodityName, pack) {
+        var rows = [];
+        var methods = [
+            { label: 'ΔLog', item: pack.dlog },
+            { label: 'EWMA', item: pack.ewma },
+            { label: '预白化冲击', item: pack.shock }
+        ];
+        for (var i = 0; i < methods.length; i++) {
+            var m = methods[i];
+            var b = bestLagByRule(m.item.series, m.item.pvals);
+            rows.push({
+                method: m.label,
+                bestLag: 'Lag ' + b.lag,
+                corr: b.corr,
+                pval: b.pval,
+                sig: b.significant
+            });
+        }
+        var rec = methodRecommendation(pack);
+        var recBest = rec.best;
+        var html = '';
+        html += '<table>';
+        html += '<thead><tr><th>品种</th><th>方法</th><th>最佳滞后</th><th style="text-align:right;">相关系数</th><th style="text-align:right;">p 值</th><th>显著性(p&lt;0.05)</th></tr></thead>';
+        html += '<tbody>';
+        for (var r = 0; r < rows.length; r++) {
+            var row = rows[r];
+            html += '<tr>';
+            html += '<td>' + commodityName + '</td>';
+            html += '<td>' + row.method + '</td>';
+            html += '<td>' + row.bestLag + '</td>';
+            html += '<td class="num">' + round4(row.corr) + '</td>';
+            html += '<td class="num">' + (row.pval === null ? '' : round6(row.pval)) + '</td>';
+            html += '<td>' + (row.sig ? '<span class="badge ok">是</span>' : '<span class="badge no">否</span>') + '</td>';
+            html += '</tr>';
+        }
+        html += '<tr>';
+        html += '<td colspan="2"><span class="badge ok">推荐</span> ' + rec.item.name + '</td>';
+        html += '<td>' + ('Lag ' + recBest.lag) + '</td>';
+        html += '<td class="num">' + round4(recBest.corr) + '</td>';
+        html += '<td class="num">' + (recBest.pval === null ? '' : round6(recBest.pval)) + '</td>';
+        html += '<td>' + (recBest.significant ? '<span class="badge ok">是</span>' : '<span class="badge no">否</span>') + '</td>';
+        html += '</tr>';
+        html += '</tbody></table>';
+        document.getElementById('bestLagTable').innerHTML = html;
+    }
+
+    function renderSummaryTable() {
+        if (!window.corrVars || !Array.isArray(window.corrVars)) return;
+        var html = '';
+        html += '<table>';
+        html += '<thead><tr><th>品种</th><th>推荐方法</th><th>推荐滞后</th><th style="text-align:right;">相关系数</th><th style="text-align:right;">p 值</th><th>显著性(p&lt;0.05)</th>';
+        html += '<th style="text-align:right;">ΔLog |corr|</th><th style="text-align:right;">EWMA |corr|</th><th style="text-align:right;">冲击 |corr|</th></tr></thead>';
+        html += '<tbody>';
+        for (var i = 0; i < window.corrVars.length; i++) {
+            var name = window.corrVars[i];
+            var pack = getSeriesPack(i);
+            var rec = methodRecommendation(pack);
+            var b = rec.best;
+            var b1 = bestLagByRule(pack.dlog.series, pack.dlog.pvals);
+            var b2 = bestLagByRule(pack.ewma.series, pack.ewma.pvals);
+            var b3 = bestLagByRule(pack.shock.series, pack.shock.pvals);
+            html += '<tr>';
+            html += '<td>' + name + '</td>';
+            html += '<td>' + rec.item.name + '</td>';
+            html += '<td>' + ('Lag ' + b.lag) + '</td>';
+            html += '<td class="num">' + round4(b.corr) + '</td>';
+            html += '<td class="num">' + (b.pval === null ? '' : round6(b.pval)) + '</td>';
+            html += '<td>' + (b.significant ? '<span class="badge ok">是</span>' : '<span class="badge no">否</span>') + '</td>';
+            html += '<td class="num">' + round4(Math.abs(b1.corr)) + '</td>';
+            html += '<td class="num">' + round4(Math.abs(b2.corr)) + '</td>';
+            html += '<td class="num">' + round4(Math.abs(b3.corr)) + '</td>';
+            html += '</tr>';
+        }
+        html += '</tbody></table>';
+        document.getElementById('summaryTable').innerHTML = html;
+    }
+
+    function buildTooltipFormatter(idx, pack) {
+        return function(params) {
+            if (!params || params.length === 0) return '';
+            var axisLabel = params[0].axisValueLabel;
+            var lagIndex = params[0].dataIndex;
+            var lines = [];
+            lines.push(axisLabel);
+            var order = [
+                { key: 'dlog', label: 'ΔLog' },
+                { key: 'ewma', label: 'EWMA' },
+                { key: 'shock', label: '预白化冲击' }
+            ];
+            for (var i = 0; i < order.length; i++) {
+                var k = order[i].key;
+                var item = pack[k];
+                var corr = item.series && item.series.length > lagIndex ? item.series[lagIndex] : 0;
+                var pval = item.pvals && item.pvals.length > lagIndex ? item.pvals[lagIndex] : null;
+                lines.push(order[i].label + '：corr=' + round4(corr) + (pval === null ? '' : (', p=' + round6(pval))));
+            }
+            return lines.join('<br/>');
+        };
+    }
+
+    function renderChart(idx, commodityName) {
+        var el = document.getElementById('chart_method_compare');
+        var chart = echarts.getInstanceByDom(el) || echarts.init(el);
+        var pack = getSeriesPack(idx);
+        var best1 = bestLagByRule(pack.dlog.series, pack.dlog.pvals);
+        var best2 = bestLagByRule(pack.ewma.series, pack.ewma.pvals);
+        var best3 = bestLagByRule(pack.shock.series, pack.shock.pvals);
+        var option = {
+            title: {
+                text: commodityName + '：Lag(0–8) 相关性对比',
+                left: 'center',
+                top: 8,
+                textStyle: { color: '#5d4037', fontFamily: 'KaiTi, 楷体, serif', fontSize: 18 }
+            },
+            tooltip: {
+                trigger: 'axis',
+                backgroundColor: 'rgba(255,255,255,0.95)',
+                borderColor: '#8b4513',
+                borderWidth: 1,
+                textStyle: { color: '#4a3b2a' },
+                formatter: buildTooltipFormatter(idx, pack)
+            },
+            legend: {
+                top: 42,
+                left: 'center',
+                textStyle: { color: '#5d4037' }
+            },
+            grid: { left: 48, right: 30, top: 90, bottom: 48, containLabel: true },
+            xAxis: {
+                type: 'category',
+                data: window.lagKeys || ['Lag 0','Lag 1','Lag 2','Lag 3','Lag 4','Lag 5','Lag 6','Lag 7','Lag 8'],
+                axisLine: { lineStyle: { color: '#8b4513' } },
+                axisLabel: { color: '#5d4037' }
+            },
+            yAxis: {
+                type: 'value',
+                min: -1,
+                max: 1,
+                axisLine: { lineStyle: { color: '#8b4513' } },
+                splitLine: { lineStyle: { color: 'rgba(139,69,19,0.25)' } },
+                axisLabel: { color: '#5d4037' }
+            },
+            series: [
+                {
+                    name: 'ΔLog',
+                    type: 'line',
+                    data: pack.dlog.series,
+                    smooth: true,
+                    symbolSize: 8,
+                    lineStyle: { width: 2, color: '#1f77b4' },
+                    itemStyle: { color: '#1f77b4' },
+                    markPoint: {
+                        symbolSize: 42,
+                        data: [{ coord: ['Lag ' + best1.lag, best1.corr], value: 'Lag ' + best1.lag }]
+                    }
+                },
+                {
+                    name: 'EWMA',
+                    type: 'line',
+                    data: pack.ewma.series,
+                    smooth: true,
+                    symbolSize: 8,
+                    lineStyle: { width: 2, color: '#ff7f0e' },
+                    itemStyle: { color: '#ff7f0e' },
+                    markPoint: {
+                        symbolSize: 42,
+                        data: [{ coord: ['Lag ' + best2.lag, best2.corr], value: 'Lag ' + best2.lag }]
+                    }
+                },
+                {
+                    name: '预白化冲击',
+                    type: 'line',
+                    data: pack.shock.series,
+                    smooth: true,
+                    symbolSize: 8,
+                    lineStyle: { width: 2, color: '#2ca02c' },
+                    itemStyle: { color: '#2ca02c' },
+                    markPoint: {
+                        symbolSize: 42,
+                        data: [{ coord: ['Lag ' + best3.lag, best3.corr], value: 'Lag ' + best3.lag }]
+                    }
+                }
+            ]
+        };
+        chart.setOption(option, true);
+        window.addEventListener('resize', function() { chart.resize(); });
+        renderBestLagTable(commodityName, pack);
+        renderSummaryTable();
+    }
+
+    function initUI() {
+        if (!window.corrVars || !Array.isArray(window.corrVars) || window.corrVars.length === 0) {
+            document.getElementById('bestLagTable').innerHTML = '<div class="hint">未检测到 corrVars / lag 数据，请先确保 start_echarts_data.js 与本页面位于同一目录。</div>';
+            return;
+        }
+        var sel = document.getElementById('commoditySelect');
+        sel.innerHTML = '';
+        for (var i = 0; i < window.corrVars.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = String(i);
+            opt.textContent = window.corrVars[i];
+            sel.appendChild(opt);
+        }
+        sel.value = '0';
+        document.getElementById('btnRefresh').addEventListener('click', function() {
+            var idx = parseInt(sel.value, 10);
+            renderChart(idx, window.corrVars[idx]);
+        });
+        sel.addEventListener('change', function() {
+            var idx = parseInt(sel.value, 10);
+            renderChart(idx, window.corrVars[idx]);
+        });
+        renderChart(0, window.corrVars[0]);
+    }
+
+    initUI();
+</script>
+</body>
+</html>
