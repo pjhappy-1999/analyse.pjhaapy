@@ -6,6 +6,8 @@ from pathlib import Path
 base_path = Path(r"c:\Users\Administrator\Desktop\lunwenxiangguan\lunwen")
 input_file = base_path / "START.csv"
 output_file = base_path / "START_prediction_dataset.csv"
+output_file_selected_global = base_path / "START_prediction_dataset_selected_global.csv"
+output_file_selected_per_commodity = base_path / "START_prediction_dataset_selected_per_commodity.csv"
 
 # Columns to process (Target + Exogenous)
 target_col = "primary_weighted_gdp"
@@ -20,6 +22,153 @@ exog_cols = [
     "wfp_palm_oil_price_usd_mean",
     "exchange_rate_cny_usd" # If available
 ]
+
+def _is_number(x):
+    try:
+        return x is not None and np.isfinite(float(x))
+    except Exception:
+        return False
+
+def _best_lag_by_rule(corrs, pvals, alpha=0.05):
+    best = {"lag": 0, "corr": 0.0, "pval": None, "significant": False}
+    best_sig_abs = -1.0
+    best_abs = -1.0
+    for k in range(9):
+        c = corrs[k] if corrs is not None and len(corrs) > k else 0.0
+        if not _is_number(c):
+            c = 0.0
+        p = pvals[k] if pvals is not None and len(pvals) > k else None
+        sig = _is_number(p) and float(p) < alpha
+        abs_c = float(abs(float(c)))
+        if sig and abs_c > best_sig_abs:
+            best_sig_abs = abs_c
+            best = {"lag": int(k), "corr": float(c), "pval": float(p), "significant": True}
+        if (not sig) and abs_c > best_abs:
+            best_abs = abs_c
+            if not best["significant"]:
+                best = {"lag": int(k), "corr": float(c), "pval": float(p) if _is_number(p) else None, "significant": False}
+    if best_sig_abs < 0 and best_abs >= 0:
+        best = {"lag": best["lag"], "corr": best["corr"], "pval": best["pval"], "significant": False}
+    return best
+
+def _read_lag_table(path: Path):
+    if not path.exists():
+        return None
+    df = pd.read_csv(path)
+    if "variable" not in df.columns:
+        return None
+    df = df.set_index("variable")
+    return df
+
+def _method_recommendations(base_path: Path, variables):
+    df_delta = _read_lag_table(base_path / "START_lagged_correlations.csv")
+    df_ewma = _read_lag_table(base_path / "START_lagged_correlations_ewma.csv")
+    df_shock = _read_lag_table(base_path / "START_lagged_correlations_shock.csv")
+    known = set()
+    for d in (df_delta, df_ewma, df_shock):
+        if d is not None:
+            known |= set(d.index.tolist())
+    if known:
+        variables = [v for v in variables if v in known]
+
+    def pick_from_df(df, var):
+        if df is None or var not in df.index:
+            return {"lag": 0, "corr": 0.0, "pval": None, "significant": False}
+        corrs = []
+        pvals = []
+        for k in range(9):
+            c = df.loc[var].get(f"lag_{k}", 0.0)
+            p = df.loc[var].get(f"pval_{k}", None)
+            corrs.append(float(c) if _is_number(c) else 0.0)
+            pvals.append(float(p) if _is_number(p) else None)
+        return _best_lag_by_rule(corrs, pvals)
+
+    methods = {
+        "dlog": {"name": "ΔLog", "df": df_delta},
+        "ewma": {"name": "EWMA", "df": df_ewma},
+        "shock": {"name": "预白化冲击", "df": df_shock},
+    }
+
+    per_method = {}
+    for key, meta in methods.items():
+        rows = []
+        for var in variables:
+            best = pick_from_df(meta["df"], var)
+            rows.append({"variable": var, **best})
+        per_method[key] = rows
+
+    def method_score(rows):
+        sig_rows = [r for r in rows if r.get("significant")]
+        sig_count = int(len(sig_rows))
+        sig_avg_abs = float(np.mean([abs(r["corr"]) for r in sig_rows])) if sig_rows else 0.0
+        overall_avg_abs = float(np.mean([abs(r["corr"]) for r in rows])) if rows else 0.0
+        return (sig_count, sig_avg_abs, overall_avg_abs)
+
+    winner_key = max(per_method.keys(), key=lambda k: method_score(per_method[k]))
+    global_selected = {r["variable"]: {"method": winner_key, **r} for r in per_method[winner_key]}
+
+    per_commodity_selected = {}
+    for var in variables:
+        candidates = []
+        for m in per_method.keys():
+            row = next((x for x in per_method[m] if x["variable"] == var), None)
+            if row is None:
+                continue
+            candidates.append({"method": m, **row})
+        sig_candidates = [c for c in candidates if c.get("significant")]
+        pool = sig_candidates if sig_candidates else candidates
+        best = max(pool, key=lambda x: abs(x.get("corr", 0.0)) if _is_number(x.get("corr")) else 0.0) if pool else {"method": winner_key, "lag": 0, "corr": 0.0, "pval": None, "significant": False}
+        per_commodity_selected[var] = best
+
+    return {
+        "winner_method": winner_key,
+        "global": global_selected,
+        "per_commodity": per_commodity_selected,
+    }
+
+def _prewhiten_shock(series: pd.Series, alpha=0.15):
+    r = series.astype(float)
+    r_l1 = r.shift(1)
+    mask = r.notna() & r_l1.notna()
+    if int(mask.sum()) >= 10:
+        num = float((r[mask] * r_l1[mask]).sum())
+        den = float((r_l1[mask] * r_l1[mask]).sum())
+        phi = num / den if den != 0 else 0.0
+    else:
+        phi = 0.0
+    e = r - phi * r_l1
+    ewma_sigma = e.pow(2).ewm(alpha=alpha, adjust=False).mean().pow(0.5)
+    s = e / ewma_sigma
+    return s
+
+def _build_selected_dataset(ret_df: pd.DataFrame, y_name: str, selection: dict, alpha=0.15):
+    if y_name not in ret_df.columns:
+        return None
+    y = ret_df[y_name]
+    features = pd.DataFrame(index=ret_df.index)
+    for lag in [1, 2, 3, 4]:
+        features[f"y_lag{lag}"] = y.shift(lag)
+
+    for var, rec in selection.items():
+        method = rec.get("method", "dlog")
+        lag = int(rec.get("lag", 0))
+        if var not in ret_df.columns:
+            continue
+        base = ret_df[var]
+        if method == "ewma":
+            x = base.ewm(alpha=alpha, adjust=False).mean()
+        elif method == "shock":
+            x = _prewhiten_shock(base, alpha=alpha)
+        else:
+            x = base
+        features[f"x_{var}_{method}_lag{lag}"] = x.shift(lag)
+
+    q = pd.Series(features.index.quarter, index=features.index)
+    dummies = pd.get_dummies(q, prefix="Q", drop_first=True)
+    features = pd.concat([features, dummies], axis=1)
+
+    out = pd.concat([y.rename("y"), features], axis=1).dropna()
+    return out
 
 def create_prediction_dataset():
     print("Loading data...")
@@ -137,6 +286,29 @@ def create_prediction_dataset():
     # Save
     final_df.to_csv(output_file)
     print(f"Saved prediction dataset to: {output_file}")
+
+    available_exog = [c for c in available_cols if c != target_col]
+    corr_vars = [c for c in available_exog if c in df.columns]
+    try:
+        recs = _method_recommendations(base_path, corr_vars)
+        ret_cols = [target_col] + corr_vars
+        ret_df = pd.DataFrame(index=diff_df.index)
+        for c in ret_cols:
+            nm = f"diff_log_{c}"
+            if nm in diff_df.columns:
+                ret_df[c] = diff_df[nm]
+
+        ds_global = _build_selected_dataset(ret_df, target_col, recs["global"])
+        if ds_global is not None and not ds_global.empty:
+            ds_global.to_csv(output_file_selected_global)
+            print(f"Saved correlation-selected dataset (global method={recs['winner_method']}) to: {output_file_selected_global}")
+
+        ds_pc = _build_selected_dataset(ret_df, target_col, recs["per_commodity"])
+        if ds_pc is not None and not ds_pc.empty:
+            ds_pc.to_csv(output_file_selected_per_commodity)
+            print(f"Saved correlation-selected dataset (per commodity) to: {output_file_selected_per_commodity}")
+    except Exception as e:
+        print(f"Skip correlation-selected datasets due to error: {e}")
     
     # 7. Quick Correlation Report for the Target
     target_diff_col = f"diff_log_{target_col}"

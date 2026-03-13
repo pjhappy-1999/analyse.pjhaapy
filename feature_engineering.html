@@ -146,10 +146,19 @@
     </style>
 </head>
 <body>
-<div class="container">
-    <div class="title">特征工程</div>
+    <!-- 顶部导航栏 -->
+    <div style="background-color: #5d4037; padding: 10px 20px; margin: -20px -40px 20px -100px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); display: flex; align-items: center; position: sticky; top: 0; z-index: 1000;">
+        <h2 style="color: #fff; margin: 0; font-family: 'KaiTi'; flex-grow: 1;">特征工程 (Feature Engineering)</h2>
+        <div style="font-family: 'Microsoft YaHei';">
+            <a href="show.html" style="color: #ccc; text-decoration: none; padding: 8px 15px; transition: color 0.3s;">数据整合</a>
+            <a href="feature_engineering.html" style="color: #fff; text-decoration: none; padding: 8px 15px; background: rgba(255,255,255,0.2); border-radius: 4px; margin-right: 10px; font-weight: bold;">特征工程</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="title">特征工程</div>
 
-    <div class="panel">
+        <div class="panel">
         <h3>方法说明（数据处理）</h3>
         <ul>
             <li>ΔLog（对数差分）：将水平量转为变化量/收益，削弱量纲影响，提升可比性与平稳性。</li>
@@ -191,12 +200,28 @@
         <div class="hint">推荐逻辑：在三种方法（ΔLog / EWMA / 冲击）中，优先选择“存在显著 Lag 且 |corr| 最大”的方法与 Lag；若三者都无显著 Lag，则选择 |corr| 最大者。</div>
     </div>
 
+    <div class="panel">
+        <h3>建模特征（基于相关性自动选择）</h3>
+        <div id="modelFeatureSummary"></div>
+        <div id="modelFeatureTable"></div>
+        <div class="hint">该清单直接对应建模输入：y 为 ΔLog(第一产业权重GDP)，x 统一采用“全局最优方法 + 各品种最佳Lag”；同时加入 y 的自回归滞后项与季度哑变量。</div>
+    </div>
+
 </div>
 
 <script>
     function isNumber(x) {
         return typeof x === 'number' && isFinite(x);
     }
+
+    var corrVarsEn = [
+        'crude_oil_price',
+        'wfp_wheat_price_usd_mean',
+        'wfp_maize_price_usd_mean',
+        'wfp_soybeans_price_usd_mean',
+        'wfp_cotton_price_usd_mean',
+        'wfp_palm_oil_price_usd_mean'
+    ];
 
     function round4(x) {
         if (!isNumber(x)) return '';
@@ -333,11 +358,52 @@
     function pickRecommendationByStrategy(pack, strategy, globalRec) {
         if (strategy === 'global') {
             var key = globalRec.winner.key;
-            return { key: key, item: pack[key], best: bestLagByRule(pack[key].series, pack[key].pvals), strategyLabel: '全局统一' };
+            return { key: key, item: pack[key], best: bestLagByRule(pack[key].series, pack[key].pvals), strategyLabel: '最优方法' };
         }
         var rec = methodRecommendation(pack);
         rec.strategyLabel = '按品种推荐';
         return rec;
+    }
+
+    function renderModelFeatureSummary(globalRec) {
+        var html = '';
+        html += '<table>';
+        html += '<thead><tr><th>模块</th><th>说明</th></tr></thead>';
+        html += '<tbody>';
+        html += '<tr><td>目标 y</td><td>ΔLog(第一产业权重GDP)</td></tr>';
+        html += '<tr><td>y 自回归项</td><td>y_lag1, y_lag2, y_lag3, y_lag4</td></tr>';
+        html += '<tr><td>季节性</td><td>Q_2, Q_3, Q_4（Q_1 为基准）</td></tr>';
+        html += '<tr><td>x 生成策略</td><td>全局统一采用：' + globalRec.winner.name + '（各品种选择最佳Lag）</td></tr>';
+        html += '</tbody></table>';
+        document.getElementById('modelFeatureSummary').innerHTML = html;
+    }
+
+    function renderModelFeatureTable(globalRec) {
+        if (!window.corrVars || !Array.isArray(window.corrVars)) return;
+        renderModelFeatureSummary(globalRec);
+        var html = '';
+        html += '<table>';
+        html += '<thead><tr><th>品种</th><th>变量名</th><th>选中方法</th><th>选中Lag</th><th style="text-align:right;">corr</th><th style="text-align:right;">p</th><th>显著性(p&lt;0.05)</th><th>特征名</th></tr></thead>';
+        html += '<tbody>';
+        for (var i = 0; i < window.corrVars.length; i++) {
+            var pack = getSeriesPack(i);
+            var rec = pickRecommendationByStrategy(pack, 'global', globalRec);
+            var b = rec.best;
+            var en = (corrVarsEn && corrVarsEn.length > i) ? corrVarsEn[i] : ('var_' + i);
+            var feat = 'x_' + en + '_' + rec.key + '_lag' + b.lag;
+            html += '<tr>';
+            html += '<td>' + window.corrVars[i] + '</td>';
+            html += '<td>' + en + '</td>';
+            html += '<td>' + rec.item.name + '</td>';
+            html += '<td>' + ('Lag ' + b.lag) + '</td>';
+            html += '<td class="num">' + round4(b.corr) + '</td>';
+            html += '<td class="num">' + (b.pval === null ? '' : round6(b.pval)) + '</td>';
+            html += '<td>' + (b.significant ? '<span class="badge ok">是</span>' : '<span class="badge no">否</span>') + '</td>';
+            html += '<td>' + feat + '</td>';
+            html += '</tr>';
+        }
+        html += '</tbody></table>';
+        document.getElementById('modelFeatureTable').innerHTML = html;
     }
 
     function renderBestLagTable(commodityName, pack, strategy, globalRec) {
@@ -574,6 +640,7 @@
             renderChart(idx, window.corrVars[idx], strategySel.value, globalRec);
         });
         renderChart(0, window.corrVars[0], strategySel.value, globalRec);
+        renderModelFeatureTable(globalRec);
     }
 
     initUI();
